@@ -1,0 +1,20 @@
+node_modules/
+
+# Android build artefacts — only source files are committed
+android/app/build/
+android/app/.cxx/
+android/.gradle/
+android/build/
+
+# iOS build artefacts
+ios/App/Pods/
+ios/App/DerivedData/
+ios/App/.build/
+
+# Signing keystore — stored separately, committed only if encrypted
+# balfour-founders-club-release.keystore
+
+# Firebase config — Android injected from GOOGLE_SERVICES_JSON CI secret at
+# build time; iOS plist kept locally only, unused while push goes direct-APNs
+android/app/google-services.json
+ios/App/App/GoogleService-Info.plist

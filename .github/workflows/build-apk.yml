@@ -1,0 +1,105 @@
+name: Build APK + AAB
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write  # required to create GitHub Releases
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Generate version
+        id: version
+        run: |
+          VERSION=$(date -u +"%Y.%m.%d.%H%M")
+          VERSION_CODE=$(date -u +"%y%j%H%M")
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION (code: $VERSION_CODE)"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Decode keystore + google-services.json
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > balfour-founders-club-release.keystore
+          echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+
+      - name: Stamp version into build.gradle
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+        run: |
+          sed -i "s/versionCode [0-9]*/versionCode $VERSION_CODE/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"$VERSION_NAME\"/" android/app/build.gradle
+          echo "Stamped versionCode=$VERSION_CODE versionName=$VERSION_NAME"
+
+      - name: Build Release APK + AAB
+        working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
+
+      - name: Rename outputs
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk balfour-founders-club.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab balfour-founders-club.aab
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Balfour Founders Club ${{ steps.version.outputs.name }}
+          body: Automated build — APK for sideload/Obtainium · AAB for Google Play
+          files: |
+            balfour-founders-club.apk
+            balfour-founders-club.aab
+          fail_on_unmatched_files: true
+
+      - name: Build summary
+        env:
+          VERSION: ${{ steps.version.outputs.name }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          {
+            echo "## Build Complete"
+            echo "- Version: $VERSION"
+            echo "- GitHub Release: $TAG"
+            echo "- APK: balfour-founders-club.apk (sideload / Obtainium)"
+            echo "- AAB: balfour-founders-club.aab (Google Play submission)"
+          } >> "$GITHUB_STEP_SUMMARY"

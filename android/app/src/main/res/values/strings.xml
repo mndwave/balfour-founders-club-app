@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Founders Club</string>
+    <string name="title_activity_main">Founders Club</string>
+    <string name="package_name">gs.boldthin.balfour.foundersclub</string>
+    <string name="custom_url_scheme">gs.boldthin.balfour.foundersclub</string>
+</resources>
