@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 // Bump this when making a native change that requires an APK/IPA rebuild.
 // Format: MAJOR.MINOR.PATCH — Obtainium uses this to detect updates.
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 const config: CapacitorConfig = {
   appId: 'gs.boldthin.balfour.foundersclub',

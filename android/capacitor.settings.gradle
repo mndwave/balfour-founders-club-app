@@ -11,6 +11,9 @@ project(':capacitor-community-in-app-review').projectDir = new File('../node_mod
 include ':capacitor-community-keep-awake'
 project(':capacitor-community-keep-awake').projectDir = new File('../node_modules/@capacitor-community/keep-awake/android')
 
+include ':capacitor-community-screen-brightness'
+project(':capacitor-community-screen-brightness').projectDir = new File('../node_modules/@capacitor-community/screen-brightness/android')
+
 include ':capacitor-mlkit-barcode-scanning'
 project(':capacitor-mlkit-barcode-scanning').projectDir = new File('../node_modules/@capacitor-mlkit/barcode-scanning/android')
 
