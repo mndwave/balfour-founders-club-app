@@ -4,6 +4,14 @@ on:
   push:
     branches: [main]
 
+# concurrency/cancel-in-progress (2026-07-22, GH-ACTIONS-MINUTES-EXHAUSTION): this
+# account's Actions minutes allowance was exhausted by rapid pushes each running a
+# full compile, getting jobs killed mid-run / refused outright. Only the latest
+# push per ref needs to finish, so superseding pushes cancel the in-flight run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write  # required to create GitHub Releases
 
