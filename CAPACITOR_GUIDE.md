@@ -120,6 +120,65 @@ npx cap sync ios   # fine over plain SSH
 #   Verify via App Store Connect → TestFlight → Builds, not local process state.
 ```
 
+## Android 15+ status bar contrast scrim (2026-07-30 — solid black band behind status bar)
+
+**Symptom:** a full-bleed page's background (a photo, in this case) genuinely extends behind
+the status bar — `Capacitor.isNativePlatform()`, the `.android-native` class, and
+`body`'s zeroed safe-area padding were all confirmed correct via an on-device debug badge — but
+a solid **black** band still renders over that strip, fixed in place while content scrolls
+underneath it (not behind the icons, *underneath the band*). Doesn't reproduce on
+randalls-rewards-app's dashboard/nav-drawer on the same physical device, because those are flat
+solid-colour backgrounds, not photos.
+
+**Root cause:** `@capacitor/status-bar`'s `overlaysWebView`/`backgroundColor` config
+(`capacitor.config.ts`) is documented as **"Not available on Android 15+"** — both this app and
+randalls-rewards-app target SDK 36 (Android 15+), so that whole config block has been silently
+ignored the entire time. `StatusBar.getInfo()` still reports the plugin's own remembered
+defaults (`overlays=true, color=#000000`) regardless of what the OS is actually doing — it is
+NOT reliable ground truth on Android 15+, don't trust it when debugging this class of issue.
+Android 15 enforces edge-to-edge itself and, whenever it can't statically guarantee status-bar
+icon legibility against the content underneath (a busy photo — exactly this), automatically
+paints a translucent dark **contrast-protection scrim**. A flat solid-colour background doesn't
+trigger it; a photo does.
+
+**❌ First attempt — did NOT work:** a `values-v29/styles.xml` theme override —
+```xml
+<item name="android:enforceStatusBarContrast">false</item>
+<item name="android:enforceNavigationBarContrast">false</item>
+```
+Compiles and installs fine, but the scrim was still visible after a real device test. These are
+`Window` **instance** properties (API 29+) — `BridgeActivity` extends `AppCompatActivity`, and
+AppCompat's theme-inflation path does not reliably forward every `android:`-namespaced Window
+attribute declared in styles.xml the way plain Android would.
+
+**✅ What actually works — `MainActivity.java`:**
+```java
+@Override
+public void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        getWindow().setStatusBarContrastEnforced(false);
+        getWindow().setNavigationBarContrastEnforced(false);
+    }
+}
+```
+Call the `Window` instance methods directly — this is the path Android's own docs describe
+(developer.android.com/design/ui/mobile/guides/foundations/system-bars). Kept the styles.xml
+attribute too; harmless, and may still matter on some OEM/version combination even if not
+sufficient alone.
+
+**🚨 Anti-pattern:** don't trust a theme-XML-only fix for anything in the
+`android:enforce*Contrast` / edge-to-edge family without a real device test — verify with
+`./gradlew assembleDebug` locally before pushing (catches AAPT2 resource-linking typos, e.g.
+`statusBarContrastEnforced` — wrong word order — vs the real `enforceStatusBarContrast`), but
+compiling clean does NOT mean the runtime behaviour is correct on Android 15+; only a device
+screenshot does.
+
+**Not yet ported to randalls-rewards-app** — it has never hit this because none of its
+full-bleed screens use a photo background. If a future Randalls screen does, mirror this fix
+there per the Platform Parity Mandate below (same MainActivity.java pattern,
+`gs.boldthin.randalls.rewards` package).
+
 ## Remaining, genuinely external
 
 | Item | What's needed | Blocks |
@@ -153,10 +212,15 @@ Fastlane lanes. Not a Balfour-specific gap.
 - `src/components/NativeAppShell.tsx` — deep links, back button, per-route status bar,
   push registration, bfcache reload guard. Deliberately does NOT port Randalls' web-usage-ping /
   app-open-ping (feeds an analytics dashboard that doesn't exist for Balfour).
-- `src/app/globals.css` — `html.ios-native`/`html.android-native` safe-area body padding.
-  Balfour has no hamburger-nav/qr-header/BackHeader equivalent needing per-component overrides
-  the way Randalls does — if a future screen needs one, add it as a matched pair per the
-  Platform Parity Mandate below.
+- `src/app/globals.css` — `html.ios-native`/`html.android-native` safe-area rules: base body
+  padding, plus per-component overrides (`.native-full-bleed`, `.app-top-bar`,
+  `.sidebar-nav-trigger`/`.sidebar-nav-drawer`, `.myid-header-safe-top`) ported from
+  randalls-rewards' BackHeader/qr-header/mobile-nav-* technique 2026-07-30 — the original claim
+  here that Balfour didn't need these (App Store submission review) was wrong; add new ones as
+  matched `ios-native`/`android-native` pairs per the Platform Parity Mandate below.
+- `src/lib/use-native-full-bleed.ts` — zeros body's safe-area padding-top while a full-bleed
+  page (`.native-full-bleed`) is mounted, so that page's own background carries the inset
+  instead of leaving a gap of body's plain colour above it.
 
 ## 🚨 PLATFORM PARITY MANDATE — ZERO TOLERANCE
 
