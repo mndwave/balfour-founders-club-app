@@ -151,21 +151,42 @@ Compiles and installs fine, but the scrim was still visible after a real device 
 AppCompat's theme-inflation path does not reliably forward every `android:`-namespaced Window
 attribute declared in styles.xml the way plain Android would.
 
-**✅ What actually works — `MainActivity.java`:**
+**❌ Second attempt — also did NOT visibly fix it:** `MainActivity.java` calling the `Window`
+instance methods directly (the officially-documented path,
+developer.android.com/design/ui/mobile/guides/foundations/system-bars) —
 ```java
-@Override
-public void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        getWindow().setStatusBarContrastEnforced(false);
-        getWindow().setNavigationBarContrastEnforced(false);
-    }
-}
+getWindow().setStatusBarContrastEnforced(false);
+getWindow().setNavigationBarContrastEnforced(false);
 ```
-Call the `Window` instance methods directly — this is the path Android's own docs describe
-(developer.android.com/design/ui/mobile/guides/foundations/system-bars). Kept the styles.xml
-attribute too; harmless, and may still matter on some OEM/version combination even if not
-sufficient alone.
+Confirmed installed (`v2026.07.30.1638`) and still showed the black band on a real device.
+Kept both this and the styles.xml attribute — harmless, and the actual root cause below may
+have been masking whether either of these genuinely helped.
+
+**✅ The actual root cause — Chromium's Android WebView doesn't implement `env()` at all:**
+CSS `env(safe-area-inset-*)` has never worked correctly in Android System WebView — it always
+reports `0px` (long-standing unfixed Chromium bug,
+issues.chromium.org/issues/40699457, confirmed via `@capacitor/core`'s own bundled
+`node_modules/@capacitor/core/system-bars.md`). Every safe-area CSS rule in the web app
+(`~/balfour-founders-club/src/app/globals.css`) had ALWAYS resolved to 0 on Android as a
+result — the black band was never really about the status bar being opaque at all; it was that
+none of the "push content down / extend background up" padding was ever actually being applied,
+on either the scrim theory or not. It only ever appeared to work on iOS by coincidence (WKWebView
+does implement `env()` correctly).
+
+`@capacitor/core` 8.3+ ships a `SystemBars` plugin (bundled — no new dependency) that injects the
+REAL inset values as `--safe-area-inset-*` CSS custom properties. Two-part fix:
+1. **This repo** (`capacitor.config.ts`): `SystemBars: { insetsHandling: 'css' }` (defaults to
+   `'css'` already in 8.4.1, made explicit here to match Capacitor's own docs).
+2. **Web app** (`~/balfour-founders-club/src/app/globals.css`): every `env(safe-area-inset-*)`
+   replaced with `var(--safe-area-inset-*, env(safe-area-inset-*, 0px))` via `--sat`/`--sab`
+   custom properties — reads the injected value first, falls back to `env()` (still correct on
+   iOS, safe no-op everywhere else).
+
+**Not yet confirmed on a real device as of this writing** — three fix attempts have shipped in
+sequence (contrast scrim theme attribute → contrast scrim Window API → this). If this one also
+doesn't resolve it, the contrast-scrim theory may still be independently real and additive
+(now that insets are correct, a residual scrim would be visible as a much thinner/lighter tint
+rather than a full solid band) — don't assume it was a red herring without a fresh screenshot.
 
 **🚨 Anti-pattern:** don't trust a theme-XML-only fix for anything in the
 `android:enforce*Contrast` / edge-to-edge family without a real device test — verify with
