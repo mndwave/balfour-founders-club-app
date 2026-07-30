@@ -200,6 +200,60 @@ full-bleed screens use a photo background. If a future Randalls screen does, mir
 there per the Platform Parity Mandate below (same MainActivity.java pattern,
 `gs.boldthin.randalls.rewards` package).
 
+### Continued — html/body baseline (also insufficient alone)
+
+Also found (and kept — genuinely correct, just not sufficient alone): `<html>` never had its own
+`background-color` at all in `~/balfour-founders-club/src/app/globals.css` — only `<body>` did.
+Found via `randalls-rewards` web repo's own git history (`git log --all -i --grep="status.?bar\|
+edge.?to.?edge\|notch"` — Kyle's exact ask, "look at the git history" — turned up commit
+`a035413`, an UNSCOPED `html, body { background-color }` rule, deliberately not gated behind
+`.ios-native`/`.android-native`, added specifically as a defensive baseline). Also ported the
+other half of that same commit's sibling technique from `randalls-rewards/src/app/qr/page.tsx`:
+it sets `body.style.backgroundColor` dynamically per-page, not just a static default.
+**On-device result: also no visible change** — confirmed via debug badge showing
+`bodyBg`/`htmlBg` both correctly cream, yet the black band was pixel-identical to before.
+
+### Continued — android:windowBackground (also insufficient alone)
+
+`android:background="@null"` in the theme does NOT set `android:windowBackground` — different
+attributes. `windowBackground` was never set anywhere in this theme chain, falling through to
+`Theme.AppCompat.DayNight`'s own dark-mode default. Set explicitly to `#fbf6ed` (cream), verified
+locally, verified the correct APK version reached the device (`App.getInfo()` added to the debug
+badge specifically to remove any ambiguity here — Kyle's ask, "put the version number in the
+green text"). **Also no visible change.**
+
+### ✅ The actual root cause — edge-to-edge was never explicitly engaged at all
+
+Confirmed by reading `@capacitor/status-bar`'s ACTUAL Android Java source
+(`node_modules/@capacitor/status-bar/android/.../StatusBar.java`), not just its docs:
+`setOverlaysWebView(true)` calls the DEPRECATED `Window#setStatusBarColor()` and
+`View#setSystemUiVisibility()` — both confirmed complete no-ops for apps targeting API 35+ per
+Android's own SDK docs ("if the window belongs to an app targeting VANILLA_ICE_CREAM or above,
+this attribute is ignored"). Every fix above controlled what gets PAINTED once edge-to-edge is
+active — none of them could ever matter if edge-to-edge itself never actually engaged for this
+Activity, which "automatic enforcement on API 35+" docs implied but this investigation never
+actually confirmed true for a Capacitor `BridgeActivity`/AppCompat setup specifically.
+
+```java
+import androidx.activity.EdgeToEdge;
+// ...
+@Override
+public void onCreate(Bundle savedInstanceState) {
+    EdgeToEdge.enable(this);   // BEFORE super.onCreate(), per Android's own convention
+    super.onCreate(savedInstanceState);
+    ...
+}
+```
+`androidx.activity.EdgeToEdge` (androidx.activity 1.11.0, already a transitive dependency via
+Capacitor/AppCompat — no new dependency needed) is the current, non-deprecated, EXPLICIT way to
+request edge-to-edge, superseding everything `setOverlaysWebView` tries to do internally.
+
+**Status as of this writing: shipped (`v2026.07.30.1857`), not yet confirmed on a real device.**
+If this doesn't resolve it either, the next thing to check is whether `BridgeActivity` itself
+calls something AFTER `MainActivity.onCreate()` returns that resets `decorFitsSystemWindows` —
+Capacitor's own bridge initialization happens in `super.onCreate()`, so if it does anything with
+window flags, it runs after `EdgeToEdge.enable()` here, not before.
+
 ## Remaining, genuinely external
 
 | Item | What's needed | Blocks |
