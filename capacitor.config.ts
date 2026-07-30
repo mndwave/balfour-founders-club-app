@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 // Bump this when making a native change that requires an APK/IPA rebuild.
 // Format: MAJOR.MINOR.PATCH — Obtainium uses this to detect updates.
-export const APP_VERSION = '1.1.3';
+export const APP_VERSION = '1.1.4';
 
 const config: CapacitorConfig = {
   appId: 'gs.boldthin.balfour.foundersclub',
@@ -40,8 +40,23 @@ const config: CapacitorConfig = {
     StatusBar: {
       // Default for the (mostly light-background) app; NativeAppShell.tsx switches
       // this dynamically per-route for dark full-bleed screens (e.g. /my-id).
+      // overlaysWebView/backgroundColor here are BOTH documented as "Not available
+      // on Android 15+" (@capacitor/status-bar's own type defs) — setStyle() (icon
+      // contrast, called per-route by NativeAppShell.tsx) is unaffected and still works.
       style: 'Dark',
       overlaysWebView: true,
+    },
+    // ANDROID-15-REAL-SAFE-AREA-2026-07-30 (Kyle, live investigation): Chromium's
+    // Android System WebView has never properly implemented CSS env(safe-area-inset-*)
+    // — it always reports 0px (long-standing unfixed Chromium bug, issues.chromium.org/
+    // issues/40699457) — so globals.css's env()-based rules were always inert on Android,
+    // working only by iOS coincidence (WKWebView DOES support env() correctly there).
+    // SystemBars (bundled in @capacitor/core 8.3+) with insetsHandling:"css" injects the
+    // REAL inset values as --safe-area-inset-* CSS custom properties instead — the
+    // official first-party fix, no third-party plugin needed. globals.css reads these
+    // with a var(...,env(...)) fallback so iOS (already correct via env()) is unaffected.
+    SystemBars: {
+      insetsHandling: 'css',
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
