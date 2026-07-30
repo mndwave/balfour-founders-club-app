@@ -234,25 +234,54 @@ active — none of them could ever matter if edge-to-edge itself never actually 
 Activity, which "automatic enforcement on API 35+" docs implied but this investigation never
 actually confirmed true for a Capacitor `BridgeActivity`/AppCompat setup specifically.
 
+**First attempt, `androidx.activity.EdgeToEdge.enable(this)` — DID engage real edge-to-edge
+(confirmed: hero image genuinely reached the true top for the first time) but had a side effect:**
+it made the native AppCompat ActionBar reappear — a real `android:id/action_bar` containing a
+"Founders Club" title `TextView` and a mystery icon, which read from a screenshot alone as
+"a broken white bar with garbled text." `getSupportActionBar().hide()` did NOT suppress it.
+
+**How this was actually diagnosed and fixed — set up a local Android 15 emulator**
+(`~/android-sdk` already had `platform-tools`/`build-tools`/`platforms` but not `emulator` or a
+system image — installed via `sdkmanager --install "emulator"
+"system-images;android-35;google_apis;x86_64"`, created an AVD targeting API 35 to match, booted
+headless with KVM hardware acceleration via `sudo -u mndwave -g kvm` — the invoking user wasn't
+in the `kvm` group and mid-session `usermod -aG kvm` doesn't refresh an already-running shell's
+groups). This turned a "build → wait for Kyle to test → wait for a screenshot → repeat" loop
+(each round ~15-20 min) into direct iteration (~30s per round: edit → `./gradlew assembleDebug`
+→ `adb install -r` → `adb shell am start` → `adb exec-out screencap`).
+
+`adb shell uiautomator dump` (NOT visible from a screenshot alone) confirmed the exact element:
+`android:id/action_bar_container` containing a real, laid-out `android:id/action_bar`. A/B tested
+by commenting `EdgeToEdge.enable()` out entirely and reinstalling — the fake title bar vanished
+completely on the same emulator, confirming it as the trigger; some interaction between
+`EdgeToEdge.enable()`'s window-feature negotiation and `AppCompatActivity`'s own theme-driven
+ActionBar setup was making a supposedly-`NoActionBar` theme show one anyway.
+
+**✅ Actual working fix — the lower-level call `EdgeToEdge.enable()` wraps internally, without
+whatever triggers the ActionBar side effect:**
 ```java
-import androidx.activity.EdgeToEdge;
+import androidx.core.view.WindowCompat;
 // ...
 @Override
 public void onCreate(Bundle savedInstanceState) {
-    EdgeToEdge.enable(this);   // BEFORE super.onCreate(), per Android's own convention
     super.onCreate(savedInstanceState);
+    WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
     ...
 }
 ```
-`androidx.activity.EdgeToEdge` (androidx.activity 1.11.0, already a transitive dependency via
-Capacitor/AppCompat — no new dependency needed) is the current, non-deprecated, EXPLICIT way to
-request edge-to-edge, superseding everything `setOverlaysWebView` tries to do internally.
+Confirmed on the local emulator across both a photo-background page (home) and the original
+dark-forest `/login` page — hero image and forest background both now genuinely extend to the
+true top with status bar icons floating transparently over real content, no artifact of any
+kind. **Shipped as `v2026.07.30.XXXX` (bump `capacitor.config.ts` when actually cutting this) —
+confirm on Kyle's real device before treating this as fully closed.**
 
-**Status as of this writing: shipped (`v2026.07.30.1857`), not yet confirmed on a real device.**
-If this doesn't resolve it either, the next thing to check is whether `BridgeActivity` itself
-calls something AFTER `MainActivity.onCreate()` returns that resets `decorFitsSystemWindows` —
-Capacitor's own bridge initialization happens in `super.onCreate()`, so if it does anything with
-window flags, it runs after `EdgeToEdge.enable()` here, not before.
+**Anti-pattern for next time:** `EdgeToEdge.enable()` reads as the officially-recommended,
+"just works" API in every piece of documentation — it is NOT a safe drop-in for an
+`AppCompatActivity`-based `BridgeActivity` specifically. Prefer the lower-level
+`WindowCompat.setDecorFitsSystemWindows()` call directly for any Capacitor Android project using
+AppCompat, and verify via a real view-hierarchy dump (`uiautomator dump`), not just a screenshot
+— this exact bug was genuinely unreadable from pixels alone (looked like "garbled text and a
+broken image icon," not "the ActionBar you explicitly disabled is back").
 
 ## Remaining, genuinely external
 
