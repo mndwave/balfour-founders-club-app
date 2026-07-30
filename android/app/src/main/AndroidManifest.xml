@@ -15,11 +15,48 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:exported="true">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Deep link: magic-link auth emails open the app, not the browser.
+                 Balfour reads ?token= on /login and /join directly — no /auth/verify
+                 route exists here (BALFOUR-MAGIC-LINK-ROUTE-FIX-2026-07-14, see
+                 loyalty_portal.rs magic_link_return_path). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="balfour.boldthin.gs"
+                    android:pathPrefix="/login" />
+            </intent-filter>
+
+            <!-- Deep link: join flow -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="balfour.boldthin.gs"
+                    android:pathPrefix="/join" />
+            </intent-filter>
+
+            <!-- Deep link: WiFi captive-portal authorization -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="balfour.boldthin.gs"
+                    android:pathPrefix="/wifi" />
             </intent-filter>
 
         </activity>
@@ -38,4 +75,13 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Biometric authentication -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+    <!-- Push notifications (FCM) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Camera — required for startScan() custom WebView scanner; not needed for Google Barcode Scanner sheet -->
+    <uses-permission android:name="android.permission.CAMERA" />
 </manifest>
