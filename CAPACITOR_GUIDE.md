@@ -82,41 +82,54 @@ CI (`.github/workflows/build-apk.yml`) builds + publishes automatically on every
 mirrors randalls-rewards-app's pipeline. Secrets (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`,
 `KEY_ALIAS`, `KEY_PASSWORD`) already set on the repo.
 
-## iOS build (Mac only)
+## iOS build — headless, no Xcode GUI (2026-07-30)
 
-Requires:
-1. Mac with Xcode 15+
-2. Apple Developer Program membership — **pending, see "What's blocked" below**
-3. `pod install` inside `ios/App/` (first time, or after plugin changes)
+**Fully solved and reproducible.** Own Apple Developer team: **Balfour Winery LLP, Team ID
+`2GRD8DS9U5`** (separate from Randalls Limited's `RH845KUW68` — same Apple ID `hello@boldthin.gs`
+as account Admin, Kiran Shukla `kiran@balfourwinery.com` is Account Holder). App Store Connect
+app record: `Balfour Founders Club`, App ID `6796329888`.
+
+**📖 Full canonical build process, including the GUI-session escape hatch that makes codesign
+work over SSH at all:** `~/seq1-intelligence/memory/randalls-rewards/ios-headless-signing-ci-keychain-fix.md`
+
+Signing setup (one-time, already done):
+- Distribution cert generated via `openssl` CSR → developer.apple.com → imported into a
+  dedicated `ci-build.keychain-db` (NOT the login keychain) on the build Mac.
+- App ID `gs.boldthin.balfour.foundersclub` registered with Push Notifications, Associated
+  Domains, Wallet capabilities.
+- "Balfour Founders Club App Store" distribution provisioning profile generated and installed
+  to `~/Library/MobileDevice/Provisioning Profiles/`.
+- `ios/App/exportOptions.plist` uses `signingStyle: manual` (not `automatic` +
+  `-allowProvisioningUpdates`) — there's no Xcode-cached Apple ID session on this Mac and none
+  is needed with manual signing.
+
+**The one non-obvious rule:** any command touching a private key — `security import`,
+`xcodebuild archive`, `xcodebuild -exportArchive` — fails with `errSecInternalComponent` /
+"User interaction is not allowed" if run directly over `ssh macbook '...'`, no matter how the
+keychain is unlocked or trust-flagged. Route those specific steps through a **Terminal.app
+window** triggered via `osascript` instead (a real GUI-session process) — full pattern in the
+linked doc. `xcrun altool --upload-app` is a pure network call and works fine over plain SSH.
 
 ```bash
-npx cap sync
-# On Mac — open in Xcode:
-npx cap open ios
-# → Signing & Capabilities: sign in with the BoldThings Apple ID, enable "Automatic"
-#   signing, add the Push Notifications + Associated Domains capabilities (this wires
-#   App.entitlements into the project — not done yet, needs Xcode's UI)
-# → Archive → Distribute App → App Store Connect
+npx cap sync ios   # fine over plain SSH
+# archive + export → via the Terminal.app escape hatch (see linked doc)
+# xcrun altool --upload-app -f App.ipa -t ios -u hello@boldthin.gs -p <app-specific-password>
+#   → plain SSH is fine, but ALWAYS background it (nohup ... & disown) and poll a log file —
+#   a client-side `timeout N ssh ...` killing your local connection does NOT kill the remote
+#   altool process; it can keep running and land the build after your terminal reports dead.
+#   Verify via App Store Connect → TestFlight → Builds, not local process state.
 ```
 
-## 🚧 What's blocked — needs Kyle's action (not code)
-
-Everything below is genuinely external-account work, not something buildable from this
-server. Balfour is in the same "code ready, accounts pending" state Randalls' iOS side is
-still in — this isn't a gap introduced by this build, it mirrors existing precedent.
+## Remaining, genuinely external
 
 | Item | What's needed | Blocks |
 |---|---|---|
-| iOS signing | Confirm whether Balfour ships under the same Apple Developer Team (`RH845KUW68`, same as randalls-rewards-app) or needs its own account/App ID registration | Any iOS build at all |
-| App Store Connect | New app record (bundle ID `gs.boldthin.balfour.foundersclub`) | TestFlight/App Store submission |
 | Google Play Console | New app listing (package `gs.boldthin.balfour.foundersclub`) | Play Store submission (Obtainium sideload works today without this) |
-| Firebase project | New project for FCM (Android push) — download `google-services.json` into `android/app/` | Android push notifications (app builds fine without it — see build.gradle's try/catch) |
-| APNs push cert | Apple Developer → Certificates → APNs key (.p8), upload to Firebase | iOS push notifications |
-| Apple Wallet | New Pass Type ID + `.p12` cert if a wallet-pass-style member card is wanted (Randalls itself hasn't finished this either — see its own guide) | Apple Wallet save |
-| App icons / splash art | Balfour-branded icon set + splash screen assets (currently using Capacitor's stock placeholder icons) | Store submission / real device polish |
+| APNs push cert | Apple Developer → Certificates → APNs key (.p8) for Balfour's own team, upload to Firebase | iOS push **notifications** (app itself builds and ships fine without it) |
 
 **No CI/Fastlane exists for iOS anywhere in this ecosystem (Randalls included)** — iOS release is
-entirely manual, on a Mac, forever, until someone builds Fastlane lanes. Not a Balfour-specific gap.
+driven by SSH + the Terminal.app escape hatch above, on this build Mac, until someone builds
+Fastlane lanes. Not a Balfour-specific gap.
 
 ## Native plugins installed (parity with randalls-rewards-app)
 
