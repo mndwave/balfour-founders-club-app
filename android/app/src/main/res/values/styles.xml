@@ -12,13 +12,31 @@
     <!-- WINDOW-BACKGROUND-BLACK-BAND-2026-07-30 (Kyle, live device investigation):
          android:background="@null" below does NOT touch android:windowBackground —
          those are different attributes. windowBackground was never set anywhere in
-         this theme chain, so it fell through to Theme.AppCompat.DayNight's own
-         default, which resolves to a dark/near-black colour in system dark mode —
-         painted by the native Activity window itself, entirely independent of the
-         WebView's content, so no web-layer CSS (html/body background-color) could
-         ever reach it. Explicit cream here matches the app's actual default theme
-         (SplashScreen.backgroundColor in capacitor.config.ts uses the same #fbf6ed). -->
-    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+         this theme chain, so it fell through to the theme's own default, which
+         resolves to a dark/near-black colour in system dark mode — painted by the
+         native Activity window itself, entirely independent of the WebView's
+         content, so no web-layer CSS (html/body background-color) could ever reach
+         it. Explicit cream here matches the app's actual default theme
+         (SplashScreen.backgroundColor in capacitor.config.ts uses the same #fbf6ed).
+
+         SYSTEM-DARK-MODE-GREY-BAND-2026-07-31: reproduced directly (no longer
+         needed Kyle's device) via `adb shell cmd uimode night yes` on the local
+         emulator — a visible extra-dark band appeared at the status bar specifically
+         in system dark mode, not present in light mode, on a build that was
+         otherwise pixel-clean. Theme.AppCompat.DayNight resolves to its dark variant
+         when the SYSTEM is in dark mode, which changes the default/fallback status
+         bar appearance resolution independently of anything this app's own JS does.
+         Balfour never needed DayNight's system-tracking behaviour in the first
+         place — its own per-route light/dark treatment (NativeAppShell.tsx calling
+         StatusBar.setStyle() explicitly for /login, /wifi, /my-id) already fully
+         replaces it. Switched the parent to plain Theme.AppCompat.Light.NoActionBar
+         so the native theme always resolves the same way regardless of the
+         device's system setting. NOT the same combination that crashed
+         randalls-rewards-app historically (overlaysWebView + Light theme + custom
+         StatusBar backgroundColor) — this app uses neither overlaysWebView reliance
+         nor a custom backgroundColor via that mechanism — but verify on-device in
+         both system light AND dark mode before trusting this. -->
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
