@@ -312,6 +312,60 @@ AppCompat, and verify via a real view-hierarchy dump (`uiautomator dump`), not j
 — this exact bug was genuinely unreadable from pixels alone (looked like "garbled text and a
 broken image icon," not "the ActionBar you explicitly disabled is back").
 
+### The actual root cause — SystemBars' native-padding fallback, not colour at all (2026-07-31)
+
+Kyle reported the dark-mode theme fix helped ("looking nicer") but was explicit that the real ask
+was still unmet: **"the content is not going behind the icons"** — regardless of bar colour. That
+reframed the whole investigation: every fix up to this point (windowBackground, theme pinning,
+WebView background colour) controlled what's *painted* in the gap above the WebView. None of them
+questioned whether the WebView itself actually reached the top of the screen.
+
+It didn't. `adb shell uiautomator dump` on a fresh cold start showed:
+```
+android.webkit.WebView [0,136][1080,2337]
+```
+on a 1080×2400 device — the WebView's own top edge started at y=136 (≈ status bar height), not
+y=0. No image, no content, no icon-overlay was ever possible in that strip — it was never part of
+the WebView, native or web.
+
+Read `@capacitor/core`'s actual `SystemBars.java` source
+(`node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/plugin/SystemBars.java`)
+rather than trusting the config docs. `insetsHandling: "css"` does inject `--safe-area-inset-*` CSS
+vars, but it has a **second, undocumented behaviour**: unless
+`getWebViewMajorVersion() >= 140 && hasViewportCover` (`hasViewportCover` = the page's
+`<meta name="viewport">` tag already contains `viewport-fit=cover` **at the plugin's own
+`onDOMReady` check**), it falls through to a native-padding fallback —
+`v.setPadding(systemBarsInsets.top, ...)` on `getBridge().getWebView().getParent()` — which
+physically pads the WebView's container by the status bar height. That's the "bar": empty native
+window background showing through a gap the WebView was never drawn into.
+
+`NativeAppShell.tsx` (the web repo) *did* patch `viewport-fit=cover` onto the meta tag — but only
+inside `if (Capacitor.getPlatform() === "ios")`. Android fell through to the fallback on every
+single load, unconditionally, independent of theme/colour — explaining exactly why the colour fix
+"helped" (fixed a real, separate bug) without fixing the actual full-bleed ask.
+
+**✅ Fix — set it server-side, for both platforms, matching randalls-rewards exactly.**
+`randalls-rewards/src/app/layout.tsx` already does this correctly:
+```ts
+export const viewport: Viewport = { viewportFit: 'cover' }
+```
+Next.js requires this live in the dedicated `viewport` export, not inside `metadata` — silently
+ignored otherwise. Ported to `balfour-founders-club/src/app/layout.tsx` verbatim. This makes the
+meta tag correct in the **first** HTML response, before any client JS runs, for both iOS and
+Android — no race against `SystemBars`' own `onDOMReady` read. Removed the now-redundant,
+Android-blind client-side patch from `NativeAppShell.tsx`.
+
+**Web-only change** — server URL mode means this went live via a Vercel deploy alone, no APK
+rebuild. Verified via `adb shell uiautomator dump` post-deploy: WebView bounds now `[0,0][1080,2400]`
+— full screen. Verified visually on both the light home hero (cream background, photo genuinely
+behind the status bar, icons overlaying transparently) and the dark `/login` route (forest-green
+full-bleed, white icons per `NativeAppShell.tsx`'s per-route `StatusBar.setStyle()`).
+
+**Lesson:** "colour is now right but content still isn't behind the icons" was the tell that this
+was never a theme/painting problem — it was a layout problem one level down, in whether the
+WebView itself was ever laid out into that region at all. Read the actual plugin source, not just
+its config surface, once documented behaviour stops explaining what's on screen.
+
 ## Remaining, genuinely external
 
 | Item | What's needed | Blocks |
