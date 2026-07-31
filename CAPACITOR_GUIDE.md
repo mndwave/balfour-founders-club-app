@@ -407,6 +407,63 @@ of the screen for anything that was quietly relying on the padding that just got
 the anti-pattern (`env(safe-area-inset`) and the structural pattern (`mt-auto`/`fixed bottom-0`
 inside a viewport-height container) rather than waiting for it to be reported page-by-page.
 
+### Round 3 — persistent header, back-nav paint bug, contrast fade, layout parity (2026-07-31)
+
+Same session, several more rounds once the core full-bleed fix was confirmed live:
+
+**Header made persistent while scrolling** (`SiteHeader.tsx`): was `position: absolute`, which
+still scrolls away with the page — only `fixed` stays pinned to the viewport. Switching position
+type doesn't affect layout (both remove the element from flow the same way). First attempt added a
+translucent forest backdrop for legibility against the cream section below — Kyle explicitly
+rejected that as an unrequested design change ("I just want those two items to float above the
+background"); reverted to fully transparent.
+
+**Logo contrast fade, generalised** — first version watched only `#hero` via IntersectionObserver
+(dark hero vs "everything else is light" assumption); broke the moment Kyle scrolled to
+`FoundersCta`, a second `bg-forest` section further down. Generalised: every section that wants a
+say now carries `data-header-bg="dark"|"light"`, and `SiteHeader` watches ALL of them with one
+observer, `rootMargin` shrunk to exactly `[0, headerHeight]` (not just shrunk from the top) so it
+answers "what's behind the header right now", not "what's visible anywhere on screen". Future
+sections just need the attribute — no header changes required.
+
+**Real device: back-navigation left a genuinely blank page** — not just Kyle's originally-reported
+"white gap", a full blank screen that survived a scroll AND a forced device rotation. `uiautomator
+dump` proved the DOM was completely correct (right text, right pixel bounds, everywhere) — a pure
+paint/compositor bug, not a React/logic bug. Confirmed NOT reproducible in Playwright (desktop or
+mobile viewport) — genuinely specific to Android's System WebView's handling of
+`history.back()`-driven navigation combined with `PageTransition.tsx`'s Framer Motion animation.
+Fixed by extending the existing iOS bfcache-reload safety net (`pageshow` + `persisted:true`) to
+Android via `popstate`, which fires only for back/forward navigation — never a `Link` click's
+`pushState` — so it can't affect ordinary forward navigation. Shares the same reload-guard key so
+the two listeners can't fire back-to-back into a loop.
+
+**`/login` ↔ `/join` layout parity** — Kyle: "do you think we should have the logo at the top of
+[login] as we do on Join?... it just feels a little bit messy." Added the logo (matching join
+exactly). The "messy" feeling traced to `/login` vertically centring `MagicLinkPanel` as a whole
+via `flex-1`/`justify-center` — its content height changes between the "form" step (email only)
+and "sent" step (heading + 6-digit code, visibly taller), so re-centring shifted the ENTIRE block's
+screen position between steps. Now top-anchored exactly like join: the block's own position never
+moves, a height change just grows/shrinks the empty space below it.
+
+**Scroll position leaking across (app)-shell navigation** — Kyle: scrolling halfway down Venues
+then navigating to History loaded History still scrolled down, not at the top. Root cause: Next's
+automatic scroll-to-top on navigation doesn't reliably fire when the destination shares a
+*persisted* layout with the previous route — `(app)/layout.tsx` deliberately keeps
+`DashboardSidebar` mounted across dashboard/account/rewards/venues/history navigation (an earlier
+Kyle request, so the sidebar itself doesn't reload), but that same persisted-layout boundary is
+what Next uses to decide whether its own scroll reset should fire. Fixed with an explicit
+`window.scrollTo({behavior:"instant"})` keyed on `usePathname()`, mounted once at the root layout
+(`ScrollToTopOnNavigate.tsx`) so any future persisted-layout route group is covered too —
+`"instant"` matters because `html` has global `scroll-behavior: smooth`, which would otherwise
+visibly animate the reset over the previous position on every navigation. Verified directly against
+the live site via Playwright (scrolled to 527px, navigated, landed at 0), not just eyeballed.
+
+**Lesson:** several of these ("logo readable everywhere", "no jump between steps", "scroll resets")
+are the same underlying discipline — a persisted layout/component (header across sections, sidebar
+across pages, a form panel across states) trades automatic-by-default browser behaviour for
+manual control, and each trade needs its own explicit handling. Don't assume "it used to just
+work" carries over once something is made to persist across a boundary it didn't cross before.
+
 ## Remaining, genuinely external
 
 | Item | What's needed | Blocks |
