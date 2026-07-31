@@ -366,6 +366,47 @@ was never a theme/painting problem — it was a layout problem one level down, i
 WebView itself was ever laid out into that region at all. Read the actual plugin source, not just
 its config surface, once documented behaviour stops explaining what's on screen.
 
+### The flip side — full-bleed now means bottom-pinned content needs real protection too (2026-07-31)
+
+Kyle, immediately after confirming the full-bleed fix: "now we've got buttons and content going
+up behind the nav bar." Expected, in hindsight — making the WebView genuinely edge-to-edge doesn't
+just fix backgrounds, it also removes the native padding that used to accidentally protect any
+element pinned to the true bottom of the viewport. Anything relying on that padding rather than
+its own explicit safe-area handling was always going to be exposed the moment full-bleed actually
+started working.
+
+Also discovered while investigating: **this emulator's bundled Android System WebView is version
+133** — below `@capacitor/core`'s own `WEBVIEW_VERSION_WITH_SAFE_AREA_FIX` threshold of **140**
+(`SystemBars.java`). Below that version, `shouldPassthroughInsets` can never be true regardless of
+the viewport meta tag, so the plugin permanently uses its native-padding fallback on this
+particular emulator — not directly reproducible here as a *result*, but exactly why hunting for
+the real bug meant reading the app's own CSS/component code for missing safe-area coverage rather
+than trusting only visual emulator confirmation. Real devices auto-update WebView via Play Store
+far more aggressively, so this is very unlikely to be Kyle's actual device's ceiling — but it's
+why this specific round of fixes shipped on code-audit confidence rather than an emulator
+screenshot, unlike every fix before it in this file.
+
+Found via `grep -rn "env(safe-area-inset" src` — the codebase-wide convention (established earlier
+in this file) is to always go through `--sab`/`--sat`, never a bare `env()` call, because Chromium
+Android WebView always reports `env(safe-area-inset-*)` as 0px. Two violations of that convention:
+
+1. **`VenueBookingWidget.tsx`** — the booking bottom-sheet's scrollable content used
+   `pb-[calc(1.5rem+env(safe-area-inset-bottom))]` directly. The real "Confirm Booking" button
+   lives inside that padding. Fixed to `var(--sab, env(safe-area-inset-bottom, 0px))`.
+2. **`DashboardSidebar.tsx`** — the "Need support" link uses `mt-auto` inside an `h-svh` drawer
+   with no bottom safe-area padding at all (never needed it before, because native padding always
+   covered the gap up to now). Added `paddingBottom: calc(0.75rem + var(--sab, 0px))`.
+
+`grep -rln "mt-auto" src` turned up two more matches (`VenueCard.tsx`, `FeaturedBenefit.tsx`,
+`DashboardBenefitCard.tsx`) but all three push a button to the bottom of a *card*, not a
+viewport-height container — confirmed via `grep -n "h-screen\|h-svh\|h-dvh"` on each, none matched,
+so they're not a safe-area concern.
+
+**Lesson:** every time full-bleed / edge-to-edge gets fixed at one layer, re-audit the OTHER edge
+of the screen for anything that was quietly relying on the padding that just got removed. Grep for
+the anti-pattern (`env(safe-area-inset`) and the structural pattern (`mt-auto`/`fixed bottom-0`
+inside a viewport-height container) rather than waiting for it to be reported page-by-page.
+
 ## Remaining, genuinely external
 
 | Item | What's needed | Blocks |
