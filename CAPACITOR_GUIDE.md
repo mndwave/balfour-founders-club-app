@@ -272,8 +272,37 @@ public void onCreate(Bundle savedInstanceState) {
 Confirmed on the local emulator across both a photo-background page (home) and the original
 dark-forest `/login` page — hero image and forest background both now genuinely extend to the
 true top with status bar icons floating transparently over real content, no artifact of any
-kind. **Shipped as `v2026.07.30.XXXX` (bump `capacitor.config.ts` when actually cutting this) —
-confirm on Kyle's real device before treating this as fully closed.**
+kind. Shipped as `v2026.07.30.1941`.
+
+### Continued — system dark mode reproduced a real extra-dark band (2026-07-31)
+
+Kyle confirmed real progress on-device ("looking nicer... but the bar at the top is still dark
+grey") — a genuinely different symptom from the earlier solid black/white bands, and this time
+reproducible **directly on the local emulator**, no device access needed: `adb shell cmd uimode
+night yes` on an otherwise-clean build (the `WindowCompat.setDecorFitsSystemWindows` fix above,
+confirmed working in light mode) introduced a real extra-dark band at the status bar specifically,
+not present with the same build in light mode. `Theme.AppCompat.DayNight.NoActionBar` resolves to
+its dark variant when the *system* is in dark mode — this changes the default/fallback status bar
+appearance resolution independently of anything the app's own JS does.
+
+**✅ Fix — stop tracking system dark mode entirely.** Balfour's own JS already handles all
+per-route light/dark treatment explicitly (`NativeAppShell.tsx` calling `StatusBar.setStyle()` for
+`/login`, `/wifi`, `/my-id`) — the native theme never needed `DayNight`'s system-tracking in the
+first place, it was just inherited from the Capacitor template default with no thought given to
+it. Changed the parent theme:
+```xml
+<style name="AppTheme.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar">
+```
+Verified in BOTH system light and dark mode (cold start + warm nav, home hero + `/login`) — clean
+in every combination, zero crashes (checked `adb logcat` for `FATAL EXCEPTION`). **Not** the same
+combination that crashed randalls-rewards-app historically (`overlaysWebView` + Light theme +
+custom `StatusBar` `backgroundColor`) — this app relies on none of those three. Shipped as
+`v2026.07.31.0452` — confirm on Kyle's real device before treating this as fully closed.
+
+**Lesson:** when a real device shows something a stock emulator profile doesn't, the fix isn't
+always "get the exact same device" — check which *device settings* (dark mode, accessibility
+options, display cutout mode) differ first. This one turned out to be reproducible on the exact
+same emulator that had shown a clean result minutes earlier, just with one setting flipped.
 
 **Anti-pattern for next time:** `EdgeToEdge.enable()` reads as the officially-recommended,
 "just works" API in every piece of documentation — it is NOT a safe drop-in for an
