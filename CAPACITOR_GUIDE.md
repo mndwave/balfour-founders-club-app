@@ -71,6 +71,7 @@ Every Android build submitted to Google Play ALSO goes to `https://media.seq1.ne
 
 - ONE command ships both: `scripts/release-android.sh --publish [track]` builds AAB + APK in a single gradle run (same versionCode/versionName, read from `android/app/build.gradle`, the only place to bump), uploads the AAB to Play, then publishes the APK to media. If the Play upload fails, nothing goes to media.
 - Never upload an AAB to Play by hand (`play-release.mjs`) without the media leg. If it happened, run `scripts/release-android.sh --media-only` from the same commit.
+- Version codes are date-based (yyDDDHHMM, as the old CI used; installed builds were ~262121050, and Android refuses a lower code). Run `scripts/release-android.sh --bump`, commit, then `--publish`.
 - `scripts/release-android.sh --verify` compares the highest Play versionCode with the media index and exits 1 on drift. Run it before closing any session that touched the Android build.
 - The APK is signed with the UPLOAD key; Play re-signs with its own key. Both fingerprints are in assetlinks.json, so app links work for either. A Play-installed copy cannot be upgraded in place by the media APK (different signer): uninstall first.
 - The app loads https://founders.balfourwinery.com (server URL mode), so web deploys reach every install instantly; the APK only changes when native code changes.

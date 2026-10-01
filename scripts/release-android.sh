@@ -20,6 +20,14 @@ PREFIX="apps/balfour-founders-club"
 BT="$HOME/android-sdk/build-tools/$(ls "$HOME/android-sdk/build-tools" | sort -V | tail -1)"
 MODE="${1:-build}"; TRACK="${2:-internal}"
 
+# Version codes use the yyDDDHHMM scheme the old CI used (Kyle's installed build is 262121050): Android refuses a LOWER code,
+# so a small counter would never install over it. Play needs a higher code per upload too.
+if [ "$MODE" = "--bump" ]; then
+  CODE="$(date -u +%y%j%H%M)"
+  perl -pi -e "s/(findProperty\(\"versionCode\"\) \?: \")[0-9]+/\${1}$CODE/" android/app/build.gradle
+  echo "versionCode -> $CODE in build.gradle: commit it, then run --publish"; exit 0
+fi
+
 conf_key() { awk -v k="$1" -F'"' '$0 ~ "^ *" k " *=" { print $2; exit }' "$CONF"; }
 r2_env() {
   AWS_ACCESS_KEY_ID="$(conf_key R2_ACCESS_KEY_ID)"; export AWS_ACCESS_KEY_ID
@@ -63,7 +71,7 @@ export KEY_ALIAS="balfour-founders-club"
 [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ] || { echo "keystore credentials not found in global.conf"; exit 1; }
 
 npx cap sync android >/dev/null
-( cd android && ./gradlew -q :app:bundleRelease :app:assembleRelease -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME" )
+( cd android && ./gradlew -q :app:bundleRelease -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME" && ./gradlew -q :app:assembleRelease -PapkAbi=arm64-v8a -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME" )
 unset KEYSTORE_PASSWORD KEY_PASSWORD
 
 APK=android/app/build/outputs/apk/release/app-release.apk
