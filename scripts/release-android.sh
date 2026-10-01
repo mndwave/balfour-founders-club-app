@@ -92,5 +92,5 @@ HTML
 aws $R2 s3 cp build/index.html "s3://media/$PREFIX/index.html" --content-type "text/html; charset=utf-8" --cache-control no-cache --only-show-errors
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 code=$(curl -s -o /dev/null -w '%{http_code}' "https://media.seq1.net/$PREFIX/$VERSIONED")
-echo "media.seq1.net: $VERSIONED -> HTTP $code · index https://media.seq1.net/$PREFIX/"
+echo "media.seq1.net: $VERSIONED -> HTTP $code · index https://media.seq1.net/$PREFIX/index.html (Obtainium needs the explicit index.html; the bare folder 404s)"
 [ "$code" = "200" ] || { echo "public APK not reachable"; exit 1; }

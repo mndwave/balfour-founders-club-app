@@ -67,7 +67,7 @@ Build credentials (keystore password, key alias) are in `~/seq1-healer/global.co
 
 ## Android release rule: Play and media.seq1.net stay aligned (Kyle, 2026-10-01)
 
-Every Android build submitted to Google Play ALSO goes to `https://media.seq1.net/apps/balfour-founders-club/` (Obtainium source "HTML", same pattern as seq1-sessions-native and seq1-studio-native), so Kyle tests the exact submitted build via Obtainium rather than the Play Store.
+Every Android build submitted to Google Play ALSO goes to `https://media.seq1.net/apps/balfour-founders-club/index.html` (Obtainium source "HTML", same pattern as seq1-sessions-native and seq1-studio-native), so Kyle tests the exact submitted build via Obtainium rather than the Play Store.
 
 - ONE command ships both: `scripts/release-android.sh --publish [track]` builds AAB + APK in a single gradle run (same versionCode/versionName, read from `android/app/build.gradle`, the only place to bump), uploads the AAB to Play, then publishes the APK to media. If the Play upload fails, nothing goes to media.
 - Never upload an AAB to Play by hand (`play-release.mjs`) without the media leg. If it happened, run `scripts/release-android.sh --media-only` from the same commit.
