@@ -65,8 +65,18 @@ Signing is configured in `app/build.gradle` using `balfour-founders-club-release
 (that only has platform-tools). Set `sdk.dir=/home/mndwave/android-sdk` in `android/local.properties`.
 Build credentials (keystore password, key alias) are in `~/seq1-healer/global.conf` under `[balfour_founders_club_app]`.
 
-## Publishing releases (Obtainium)
+## Android release rule: Play and media.seq1.net stay aligned (Kyle, 2026-10-01)
 
+Every Android build submitted to Google Play ALSO goes to `https://media.seq1.net/apps/balfour-founders-club/` (Obtainium source "HTML", same pattern as seq1-sessions-native and seq1-studio-native), so Kyle tests the exact submitted build via Obtainium rather than the Play Store.
+
+- ONE command ships both: `scripts/release-android.sh --publish [track]` builds AAB + APK in a single gradle run (same versionCode/versionName, read from `android/app/build.gradle`, the only place to bump), uploads the AAB to Play, then publishes the APK to media. If the Play upload fails, nothing goes to media.
+- Never upload an AAB to Play by hand (`play-release.mjs`) without the media leg. If it happened, run `scripts/release-android.sh --media-only` from the same commit.
+- `scripts/release-android.sh --verify` compares the highest Play versionCode with the media index and exits 1 on drift. Run it before closing any session that touched the Android build.
+- The APK is signed with the UPLOAD key; Play re-signs with its own key. Both fingerprints are in assetlinks.json, so app links work for either. A Play-installed copy cannot be upgraded in place by the media APK (different signer): uninstall first.
+- The app loads https://founders.balfourwinery.com (server URL mode), so web deploys reach every install instantly; the APK only changes when native code changes.
+
+## Publishing releases (Obtainium)
+/
 Obtainium tracks GitHub releases — a push to `main` does NOT update the app on device.
 After building, always publish a release:
 
