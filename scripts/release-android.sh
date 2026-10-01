@@ -30,9 +30,9 @@ r2_env() {
 
 # Highest versionCode Play knows on ANY track (internal, closed, production).
 play_max_code() {
-  local edit; edit=$(node ~/.local/bin/play-api.mjs POST "/applications/$PKG/edits" | node -e 'process.stdin.on("data",d=>console.log(JSON.parse(d).id))')
+  local edit; edit=$(node ~/.local/bin/play-api.mjs POST "/applications/$PKG/edits" | sed "1s/^[0-9]* //" | node -e 'process.stdin.on("data",d=>console.log(JSON.parse(d).id))')
   node ~/.local/bin/play-api.mjs GET "/applications/$PKG/edits/$edit/tracks" \
-    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const c=(JSON.parse(s).tracks||[]).flatMap(t=>(t.releases||[]).flatMap(r=>(r.versionCodes||[]).map(Number)));console.log(c.length?Math.max(...c):0)})'
+    | sed '1s/^[0-9]* //' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const c=(JSON.parse(s).tracks||[]).flatMap(t=>(t.releases||[]).flatMap(r=>(r.versionCodes||[]).map(Number)));console.log(c.length?Math.max(...c):0)})'
   node ~/.local/bin/play-api.mjs DELETE "/applications/$PKG/edits/$edit" >/dev/null 2>&1 || true
 }
 media_code() { curl -fsS "https://media.seq1.net/$PREFIX/index.html" | sed -n 's/.*code \([0-9]*\)).*/\1/p' | head -1; }
