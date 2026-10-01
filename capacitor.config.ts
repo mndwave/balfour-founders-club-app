@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
     // Server URL mode: loads the live web app rather than bundled assets.
     // This means web deploys update the app instantly — no APK/IPA rebuild needed.
     // Only rebuild when native plugins or AndroidManifest/Info.plist change.
-    url: 'https://balfour.boldthin.gs',
+    url: 'https://founders.balfourwinery.com',
     cleartext: false,
     androidScheme: 'https',
   },

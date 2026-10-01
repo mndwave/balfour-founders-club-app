@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Notification accent; matches LocalNotifications.iconColor in capacitor.config.ts -->
+    <color name="balfour_notification">#bb8459</color>
+</resources>

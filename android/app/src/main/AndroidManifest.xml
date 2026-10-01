@@ -59,6 +59,38 @@
                     android:pathPrefix="/wifi" />
             </intent-filter>
 
+            <!-- FOUNDERS-DOMAIN-APP-LINKS-2026-10-01: founders.balfourwinery.com is the public
+                 domain (Kyle, 2026-10-01); balfour.boldthin.gs stays as the second host. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="founders.balfourwinery.com"
+                    android:pathPrefix="/login" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="founders.balfourwinery.com"
+                    android:pathPrefix="/join" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="founders.balfourwinery.com"
+                    android:pathPrefix="/wifi" />
+            </intent-filter>
+
         </activity>
 
         <provider
@@ -70,6 +102,15 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- FCM defaults: background (system-tray) pushes use the white building mark and
+             Balfour copper rather than the launcher icon in a grey circle. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_balfour" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/balfour_notification" />
     </application>
 
     <!-- Permissions -->

@@ -1,6 +1,6 @@
 # Balfour Founders Club — Capacitor App Guide
 
-Server URL mode: the app loads `https://balfour.boldthin.gs` live.
+Server URL mode: the app loads `https://founders.balfourwinery.com` live (public domain since 2026-10-01; `balfour.boldthin.gs` remains a second universal/app-link host).
 Web deploys update the app instantly. Only rebuild the APK/IPA when native plugins or
 platform manifests change.
 
@@ -24,7 +24,7 @@ balfour-founders-club-app/
 | App ID | `gs.boldthin.balfour.foundersclub` |
 | Android package | `gs.boldthin.balfour.foundersclub` |
 | iOS bundle ID | `gs.boldthin.balfour.foundersclub` |
-| Server URL | `https://balfour.boldthin.gs` |
+| Server URL | `https://founders.balfourwinery.com` |
 | Deep links | none configured yet — magic-link auth is `/login?token=` (same URL as web); would need an `applinks:` universal-link intent to open the app directly instead of the browser |
 
 ## Bumping the version (when native changes require a rebuild)

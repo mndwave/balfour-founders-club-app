@@ -3,15 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>production</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
+		<string>applinks:founders.balfourwinery.com</string>
+		<string>webcredentials:founders.balfourwinery.com</string>
 		<string>applinks:balfour.boldthin.gs</string>
 		<string>webcredentials:balfour.boldthin.gs</string>
 	</array>
 	<key>com.apple.developer.pass-type-identifiers</key>
 	<array>
-		<string>pass.gs.balfour.loyalty</string>
+		<string>$(TeamIdentifierPrefix)pass.gs.balfour.loyalty</string>
 	</array>
 </dict>
 </plist>
