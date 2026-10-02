@@ -93,9 +93,12 @@ TYPE="application/vnd.android.package-archive"
 mkdir -p build
 aws $R2 s3 cp "$APK" "s3://media/$PREFIX/$VERSIONED" --content-type "$TYPE" --only-show-errors
 aws $R2 s3 cp "$APK" "s3://media/$PREFIX/balfour-founders-club-latest.apk" --content-type "$TYPE" --cache-control no-cache --only-show-errors
+# Obtainium compares versionCode (the number in the filename), so refreshes stop flagging phantom updates.
+OBT_LINK="$(node "$(dirname "$0")/obtainium-link.mjs" "$PKG" "Balfour Founders Club" "https://media.seq1.net/$PREFIX/index.html")"
 cat > build/index.html <<HTML
 <!doctype html><meta charset="utf-8"><title>Balfour Founders Club (Android)</title>
 <p>Latest: <a href="$VERSIONED">$VERSIONED</a> (version $VERSION_NAME, code $VERSION_CODE)</p>
+<p><a href="$OBT_LINK">Add to Obtainium with the correct update settings</a> (tap once on the phone; replaces any existing entry for this app)</p>
 HTML
 aws $R2 s3 cp build/index.html "s3://media/$PREFIX/index.html" --content-type "text/html; charset=utf-8" --cache-control no-cache --only-show-errors
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
