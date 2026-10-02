@@ -7,7 +7,7 @@ android {
         applicationId "gs.boldthin.balfour.foundersclub"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode = Integer.parseInt((project.findProperty("versionCode") ?: "262741815").toString())
+        versionCode = Integer.parseInt((project.findProperty("versionCode") ?: "262750907").toString())
         versionName = (project.findProperty("versionName") ?: "1.1.1").toString()
         // Sideload APK only: ship one ABI (the Play AAB keeps all of them; Play splits per device)
         if (project.hasProperty("apkAbi")) { ndk { abiFilters project.property("apkAbi").toString() } }
