@@ -66,6 +66,19 @@ const config: CapacitorConfig = {
     // with a var(...,env(...)) fallback so iOS (already correct via env()) is unaffected.
     SystemBars: {
       insetsHandling: 'css',
+      // BALFOUR-LAUNCH-SPLASH-POSITION-2026-10-02 (Kyle: the launch logo moves on
+      // load). Without this hint SystemBars starts with hasViewportCover=false and
+      // pads the WebView's parent by the status and navigation bars until
+      // onPageCommitVisible has read the page's viewport meta; only then does it
+      // remove the padding and go edge-to-edge. The web launch splash therefore
+      // first painted centred in the padded (shorter, lower) WebView, 38px (14.5dp)
+      // below the native launch logo on a 1080x2400 emulator, and then jumped back
+      // up when the padding went. The site always ships viewport-fit=cover
+      // (balfour-founders-club layout.tsx), so the hint is true from the start
+      // and the WebView is edge-to-edge before its first frame. Takes effect on
+      // Android System WebView 140+ (SystemBars' passthrough gate); older
+      // WebViews stay padded throughout (no jump, small offset at the handoff).
+      initialViewportFitValueHint: 'cover',
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
