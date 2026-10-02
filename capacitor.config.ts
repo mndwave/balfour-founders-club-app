@@ -8,6 +8,8 @@ const config: CapacitorConfig = {
   appId: 'gs.boldthin.balfour.foundersclub',
   appName: 'Founders Club',
   webDir: 'www',
+  // BALFOUR-LAUNCH-SPLASH-2026-10-02: the WebView itself is cream before the site paints.
+  backgroundColor: '#fbf6ed',
   server: {
     // Server URL mode: loads the live web app rather than bundled assets.
     // This means web deploys update the app instantly — no APK/IPA rebuild needed.
@@ -31,11 +33,18 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      // launchShowDuration 0 — the web layer handles the loading animation.
-      // backgroundColor matches the site's cream (#fbf6ed) so there is no colour flash.
+      // BALFOUR-LAUNCH-SPLASH-2026-10-02: the native launch screen now stays up
+      // until the live site has painted its own identical splash, then the page
+      // hides it (Capacitor bridge, LAUNCH_SPLASH_BODY_SCRIPT in the web repo's
+      // src/lib/launch-splash.ts). Before, launchShowDuration 0 dropped it at once
+      // and the WebView sat blank while the remote site loaded. 5000ms is only a
+      // failsafe for a site that never loads; autoHide must stay true for it.
+      // (The old 'autoHide' key was not a real option; launchAutoHide is.)
       backgroundColor: '#fbf6ed',
-      launchShowDuration: 0,
-      autoHide: true,
+      launchShowDuration: 5000,
+      launchAutoHide: true,
+      launchFadeOutDuration: 250,
+      showSpinner: false,
     },
     StatusBar: {
       // Default for the (mostly light-background) app; NativeAppShell.tsx switches
