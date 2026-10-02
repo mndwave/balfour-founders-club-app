@@ -93,6 +93,9 @@ TYPE="application/vnd.android.package-archive"
 mkdir -p build
 aws $R2 s3 cp "$APK" "s3://media/$PREFIX/$VERSIONED" --content-type "$TYPE" --only-show-errors
 aws $R2 s3 cp "$APK" "s3://media/$PREFIX/balfour-founders-club-latest.apk" --content-type "$TYPE" --cache-control no-cache --only-show-errors
+# F-Droid-style index: Obtainium's repo source reads real versionName/versionCode from it (no link guessing).
+node "$(dirname "$0")/obtainium-repo-index.mjs" build/index-v2.json "$PKG" "Balfour Founders Club" "$VERSION_NAME" "$VERSION_CODE" "$APK" "$VERSIONED" "https://media.seq1.net/$PREFIX" \
+  && aws $R2 s3 cp build/index-v2.json "s3://media/$PREFIX/index-v2.json" --content-type application/json --cache-control no-cache --only-show-errors
 # Obtainium compares versionCode (the number in the filename), so refreshes stop flagging phantom updates.
 OBT_LINK="$(node "$(dirname "$0")/obtainium-link.mjs" "$PKG" "Balfour Founders Club" "https://media.seq1.net/$PREFIX/index.html")"
 cat > build/index.html <<HTML
