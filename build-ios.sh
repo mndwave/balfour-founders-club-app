@@ -91,4 +91,14 @@ if ! check_entitlements ipa "$CHECK_DIR/Payload/App.app"; then
   exit 1
 fi
 rm -rf "$CHECK_DIR"
+# SCENE-LIFECYCLE-GUARD-2026-10-03: iOS 27 SDK aborts at launch without UIApplicationSceneManifest (App Review rejected Randalls 1.0.9 (7), guideline 2.1(a)).
+CHECK_DIR=$(mktemp -d)
+unzip -q -o build/export/App.ipa "Payload/App.app/Info.plist" -d "$CHECK_DIR"
+if ! plutil -extract UIApplicationSceneManifest xml1 -o - "$CHECK_DIR/Payload/App.app/Info.plist" >/dev/null 2>&1; then
+  echo "❌ SCENE-LIFECYCLE-GUARD: signed App.app has NO UIApplicationSceneManifest - it will crash on launch on iOS 27. Do NOT upload this IPA."
+  rm -rf "$CHECK_DIR"
+  exit 1
+fi
+rm -rf "$CHECK_DIR"
+echo "✅ SCENE-LIFECYCLE-GUARD: UIApplicationSceneManifest present in the signed app"
 echo "BUILD_SCRIPT_COMPLETE_OK"

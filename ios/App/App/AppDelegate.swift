@@ -33,17 +33,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        // Called when the app was launched with a url. Feel free to add additional processing here,
-        // but if you want the App API to support tracking app url opens, make sure to keep this call
-        return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
-    }
-
-    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        // Called when the app was launched with an activity, including Universal Links.
-        // Feel free to add additional processing here, but if you want the App API to support
-        // tracking app url opens, make sure to keep this call
-        return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    // IOS27-SCENE-LIFECYCLE-2026-10-03: apps built with the iOS 27 SDK must adopt the UIScene
+    // life cycle or UIKit aborts at launch ("Application failed to launch: UIScene life cycle is
+    // required for apps built with this SDK" - App Review rejected 1.0.9 (7) for exactly this).
+    // URL opens and Universal Links now arrive in SceneDelegate and go through Capacitor's
+    // SceneDelegateProxy; the UIApplication open-url / continue-userActivity callbacks are not
+    // delivered once scenes are in use.
+    func application(_ application: UIApplication,
+                     configurationForConnecting connectingSceneSession: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        let config = UISceneConfiguration(name: "Default Configuration",
+                                          sessionRole: connectingSceneSession.role)
+        config.delegateClass = SceneDelegate.self
+        return config
     }
 
     // Bridges the raw APNs device token to Capacitor's push-notifications plugin.
