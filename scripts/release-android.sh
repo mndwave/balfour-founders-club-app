@@ -61,12 +61,12 @@ VERSION_CODE="$(sed -n 's/.*findProperty("versionCode") ?: "\([0-9]*\)".*/\1/p' 
 VERSION_NAME="$(sed -n 's/.*findProperty("versionName") ?: "\([^"]*\)".*/\1/p' android/app/build.gradle)"
 [ -n "$VERSION_CODE" ] && [ -n "$VERSION_NAME" ] || { echo "cannot read version from build.gradle"; exit 1; }
 
-# Signing values come from the [balfour-founders-club] block of global.conf (3 lines either side of its key_alias).
+# Signing values come from the compartment store (seq1-compartment get), falling back to the [balfour-founders-club] block of global.conf (3 lines either side of its key_alias) until the strip.
 near_alias() { awk -v want="$1" '
   /key_alias *= *"balfour-founders-club"/ { hit = NR } { lines[NR] = $0 }
   END { for (i = hit - 3; i <= hit + 3; i++) if (i > 0 && lines[i] ~ "^ *" want " *=") { v = lines[i]; sub(/^[^=]*= *"/, "", v); sub(/".*$/, "", v); print v; exit } }' "$CONF"; }
-KEYSTORE_PASSWORD="$(near_alias keystore_password)"; export KEYSTORE_PASSWORD
-KEY_PASSWORD="$(near_alias key_password)"; export KEY_PASSWORD
+KEYSTORE_PASSWORD="$(seq1-compartment get balfour_founders_club_app keystore_password 2>/dev/null || near_alias keystore_password)"; export KEYSTORE_PASSWORD
+KEY_PASSWORD="$(seq1-compartment get balfour_founders_club_app key_password 2>/dev/null || near_alias key_password)"; export KEY_PASSWORD
 export KEY_ALIAS="balfour-founders-club"
 [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ] || { echo "keystore credentials not found in global.conf"; exit 1; }
 
