@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -123,6 +124,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Camera — required for startScan() custom WebView scanner; not needed for Google Barcode Scanner sheet -->
-    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- BALFOUR-CAMERA-PERMISSION-REMOVED-2026-10-19 (healer:5be29701): the bundled ML Kit scanner is
+         never called (members show their own QR), so CAMERA is removed, including the copy the
+         plugin's own manifest would merge in. The profile-photo picker's "take photo" uses the
+         system camera app through an intent, which needs no permission. -->
+    <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
 </manifest>
