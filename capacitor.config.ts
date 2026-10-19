@@ -17,6 +17,11 @@ const config: CapacitorConfig = {
     url: 'https://founders.balfourwinery.com',
     cleartext: false,
     androidScheme: 'https',
+    // BALFOUR-OFFLINE-QR-2026-10-19 (healer:52c5943e, port of RR-OFFLINE-QR-2026-10-19): with no signal
+    // (or a failed or stalled load, see MainActivity / MainViewController) the WebView shows
+    // www/offline.html, which draws the member's saved QR card from native Preferences (written by
+    // balfour-founders-club src/lib/native.ts cacheMemberProfile). Needs an app rebuild.
+    errorPath: 'offline.html',
   },
   android: {
     allowMixedContent: false,

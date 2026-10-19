@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <title>Founders Club</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!--
+    BALFOUR-OFFLINE-QR-2026-10-19 (healer:52c5943e, port of Randalls RR-OFFLINE-QR-2026-10-19).
+    Capacitor errorPath page: shown when the live site (server.url) cannot be loaded or stalls on a
+    weak signal. Draws the member's QR from the profile the live app mirrors into native Preferences
+    (balfour-founders-club src/lib/native.ts cacheMemberProfile, key bf_cached_member_profile), so it
+    works with no network at all. The QR encodes the permanent member number, which is what the
+    live /my-id QR falls back to when its rotating token cannot be fetched. Plain page, no build
+    step; QR encoder is vendored (qrcode.js, qrcode-generator 1.4.4, MIT).
+  -->
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+      background: #fbf6ed; color: #212322;
+      font-family: -apple-system, system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif; text-align: center;
+    }
+    h1 { font-size: 13px; font-weight: 600; letter-spacing: 3px; margin: 0 0 20px; text-transform: uppercase; color: #bb8459; }
+    .card { background: #fff; border-radius: 16px; padding: 16px 16px 0; width: var(--card, 280px); box-shadow: 0 2px 12px rgba(33,35,34,.15); }
+    .card svg { display: block; width: 100%; height: auto; }
+    .num { height: 40px; display: flex; align-items: center; justify-content: center; color: rgba(33,35,34,.7);
+      font: 12px ui-monospace, Menlo, Consolas, monospace; letter-spacing: 2.4px; word-break: break-all; }
+    .hint { font-size: 13px; font-weight: 500; letter-spacing: 1.2px; margin: 24px 0 0; }
+    .name { font-size: 26px; margin: 20px 0 4px; line-height: 1.15; }
+    .tier { font-size: 13px; letter-spacing: 1.2px; text-transform: uppercase; color: #bb8459; }
+    .status { margin-top: 24px; font-size: 12px; letter-spacing: 1.2px; opacity: .65; text-transform: uppercase; }
+    p.msg { font-size: 16px; line-height: 1.4; max-width: 300px; margin: 0 0 16px; }
+    button { margin-top: 18px; background: transparent; color: #212322; border: 1px solid rgba(33,35,34,.4);
+      border-radius: 999px; padding: 12px 28px; font-size: 14px; letter-spacing: 1px; }
+    button:active { background: rgba(33,35,34,.08); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1>Founders Club</h1>
+
+  <section id="card" hidden>
+    <div class="card" id="qrbox">
+      <div id="qr" role="img" aria-label="Your member QR code"></div>
+      <div class="num" id="num"></div>
+    </div>
+    <p class="hint">HOLD UP TO THE SCANNER</p>
+    <div class="name" id="name"></div>
+    <div class="tier" id="tier"></div>
+    <div class="status" id="status" role="status">No connection · saved card</div>
+    <button type="button" id="retry1">Try again</button>
+  </section>
+
+  <section id="nocard" hidden>
+    <p class="msg" id="nomsg"></p>
+    <button type="button" id="retry2">Try again</button>
+  </section>
+
+  <script src="qrcode.js"></script>
+  <script>
+  (function () {
+    var SERVER = 'https://founders.balfourwinery.com/';
+    var PROFILE_KEY = 'bf_cached_member_profile';
+    var cap = window.Capacitor;
+
+    function plugin(name, method, opts) {
+      try {
+        if (cap && typeof cap.nativePromise === 'function') return cap.nativePromise(name, method, opts || {});
+        return cap.Plugins[name][method](opts || {});
+      } catch (e) { return Promise.reject(e); }
+    }
+    function pref(key) {
+      return plugin('Preferences', 'get', { key: key }).then(function (r) { return r && r.value; });
+    }
+    function $(id) { return document.getElementById(id); }
+    function go() { location.replace(SERVER); }
+
+    function drawQr(value, host) {
+      var qr = qrcode(0, 'M');
+      qr.addData(value);
+      qr.make();
+      var n = qr.getModuleCount(), d = '';
+      for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (qr.isDark(r, c)) d += 'M' + c + ' ' + r + 'h1v1h-1z';
+      host.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + n + ' ' + n +
+        '" shape-rendering="crispEdges"><rect width="' + n + '" height="' + n + '" fill="#fff"/><path d="' + d + '" fill="#212322"/></svg>';
+    }
+
+    function show(p) {
+      drawQr(p.member_number, $('qr'));
+      $('num').textContent = p.member_number;
+      $('name').textContent = [p.first_name, p.last_name].filter(Boolean).join(' ');
+      $('tier').textContent = p.tier_display_name || '';
+      $('card').hidden = false;
+      var w = Math.min(325, window.innerWidth - 48, window.innerHeight * 0.4);
+      document.documentElement.style.setProperty('--card', Math.max(200, w) + 'px');
+      // Same as the live /my-id page: keep the screen on and bright while it is held to the scanner.
+      plugin('KeepAwake', 'keepAwake').catch(function () {});
+      plugin('ScreenBrightness', 'setBrightness', { brightness: 1 }).catch(function () {});
+    }
+
+    function none(msg) { $('nomsg').textContent = msg; $('nocard').hidden = false; }
+
+    $('retry1').onclick = $('retry2').onclick = go;
+    window.addEventListener('online', go);
+
+    pref(PROFILE_KEY).then(function (raw) {
+      var p = null;
+      try { p = raw ? JSON.parse(raw) : null; } catch (e) {}
+      if (p && p.member_number) show(p);
+      else none('You are offline. Your QR code is saved on this phone once you have opened Founders Club with a connection.');
+    }).catch(function () {
+      none('You are offline. Connect to the internet to open Founders Club.');
+    }).then(function () {
+      // The live page normally hides the native launch splash; this page has to.
+      plugin('SplashScreen', 'hide').catch(function () {});
+    });
+  })();
+  </script>
+</body>
+</html>
