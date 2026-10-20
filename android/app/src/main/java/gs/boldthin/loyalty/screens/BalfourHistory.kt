@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -377,9 +378,10 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawIntoCanvas40Sha
 
 @Composable
 private fun ReceiptPromptCard(stage: BfReceiptPrompt, type: BfType, onTurnOn: () -> Unit) {
-    // rounded-lg bg-forest p-4, inner relative min-h-11
+    // rounded-lg bg-forest p-4, inner relative min-h-11 with absolute inset-0 content: the row is exactly 44 high and a wrapped
+    // subtitle overflows it centred (never grows the banner); the outer flex gap-4 puts 16 before the button, inner gap-3 12 after the icon
     Box(Modifier.fillMaxWidth().background(BfColour.Forest, RoundedCornerShape(8.dp)).padding(16.dp)) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(40.dp).background(BfColour.Cream.copy(alpha = 0.10f), CircleShape), contentAlignment = Alignment.Center) {
                 Canvas(Modifier.size(20.dp)) {
                     val s = size.width / 24f
@@ -402,12 +404,13 @@ private fun ReceiptPromptCard(stage: BfReceiptPrompt, type: BfType, onTurnOn: ()
             if (stage == BfReceiptPrompt.SAVED) {
                 BasicText("Receipts turned on — manage anytime in Account.", style = type.sans(14f, 20f, BfColour.Cream), modifier = Modifier.weight(1f))
             } else {
-                Column(Modifier.weight(1f)) {
+                Column(Modifier.weight(1f).wrapContentHeight(Alignment.CenterVertically, unbounded = true)) {
                     BasicText("Get email receipts", style = type.sans(14f, 20f, BfColour.Cream, weight = 500))
                     BasicText("Turn on to get a receipt after every visit.", style = type.sans(12f, 16f, BfColour.Cream.copy(alpha = 0.60f)), modifier = Modifier.padding(top = 2.dp))
                 }
                 Box(
                     Modifier
+                        .padding(start = 4.dp)
                         .height(36.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(BfColour.RoseDeep)
