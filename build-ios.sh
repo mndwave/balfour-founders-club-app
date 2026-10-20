@@ -36,6 +36,13 @@ if ! grep -q "\"url\": \"$APP_URL\"" ios/App/App/capacitor.config.json; then
 fi
 
 cd ios/App
+# IOS-ROOT-VC-GUARD-2026-10-20 (healer:596fd32f): under the UIScene life cycle SceneDelegate builds the window and
+# Main.storyboard is never loaded, so a bare CAPBridgeViewController silently skips MainViewController (the 6 s
+# weak-signal fallback and the native member card). Refuse to archive unless SceneDelegate builds MainViewController.
+if ! grep -q "rootViewController = MainViewController()" App/SceneDelegate.swift; then
+  echo "❌ IOS-ROOT-VC-GUARD: App/SceneDelegate.swift does not build MainViewController - the native card and offline fallback would never run. Do NOT archive."
+  exit 1
+fi
 echo "=== ARCHIVE START $(date) ==="
 rm -rf build
 xcodebuild \
