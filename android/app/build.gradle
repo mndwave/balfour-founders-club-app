@@ -1,4 +1,7 @@
 apply plugin: 'com.android.application'
+// LOYALTY-NATIVE-SCREENS-2026-10-20 (healer:4d9ec5cb): the native loyalty screens (gs.boldthin.loyalty.screens) are Kotlin + Compose.
+apply plugin: 'kotlin-android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 android {
     namespace = "gs.boldthin.balfour.foundersclub"
@@ -26,6 +29,12 @@ android {
             keyPassword System.getenv("KEY_PASSWORD") ?: ""
         }
     }
+    buildFeatures {
+        compose = true
+    }
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
     buildTypes {
         release {
             minifyEnabled false
@@ -47,13 +56,24 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    implementation platform('androidx.compose:compose-bom:2025.06.00')
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.foundation:foundation'
     testImplementation "junit:junit:$junitVersion"
+    testImplementation 'org.json:json:20231013'
+    testImplementation 'org.robolectric:robolectric:4.16'
+    testImplementation 'androidx.compose.ui:ui-test-junit4'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
 }
 
 apply from: 'capacitor.build.gradle'
+
+kotlin {
+    compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 }
+}
 
 try {
     def servicesJSON = file('google-services.json')
