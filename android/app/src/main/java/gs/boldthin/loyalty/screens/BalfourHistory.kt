@@ -69,6 +69,7 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -140,6 +141,9 @@ internal class BfType(art: BalfourArt, private val density: Density) {
         textAlign = align,
         lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
         platformStyle = PlatformTextStyle(includeFontPadding = false),
+        // Fractional glyph advances, as the WebView draws them (TextMotion.Static rounds each advance: a device line
+        // came out ~0.6 px per character narrower than the page, randalls-rewards-app 619a030).
+        textMotion = TextMotion.Animated,
     )
 
     /** Tailwind text-xs = 12/16, text-sm = 14/20, text-base = 16/24: pass the CSS size and line height. */
