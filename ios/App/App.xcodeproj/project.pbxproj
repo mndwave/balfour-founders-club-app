@@ -10,6 +10,7 @@
 		A1B2C3D40000000000000002 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000001 /* MainViewController.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
+		9C4D0A022E8F10200000A001 /* LoyaltyCard in Frameworks */ = {isa = PBXBuildFile; productRef = 9C4D0A012E8F10200000A001 /* LoyaltyCard */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		7E5C0DE1202610030000A002 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0DE1202610030000A001 /* SceneDelegate.swift */; };
@@ -42,6 +43,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+				9C4D0A022E8F10200000A001 /* LoyaltyCard in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -101,6 +103,7 @@
 			name = App;
 			packageProductDependencies = (
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
+				9C4D0A012E8F10200000A001 /* LoyaltyCard */,
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
@@ -133,6 +136,7 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
+				9C4D0A002E8F10200000A001 /* XCLocalSwiftPackageReference "../LoyaltyCard" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -380,6 +384,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "CapApp-SPM";
 		};
+		9C4D0A002E8F10200000A001 /* XCLocalSwiftPackageReference "../LoyaltyCard" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../LoyaltyCard;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -387,6 +395,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
+		};
+		9C4D0A012E8F10200000A001 /* LoyaltyCard */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9C4D0A002E8F10200000A001 /* XCLocalSwiftPackageReference "../LoyaltyCard" */;
+			productName = LoyaltyCard;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

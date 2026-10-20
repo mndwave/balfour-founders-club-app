@@ -8,7 +8,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = CAPBridgeViewController()
+        // IOS-ROOT-VC-2026-10-20 (healer:596fd32f): MainViewController, not a bare CAPBridgeViewController.
+        // Since the UIScene move (IOS27-SCENE-LIFECYCLE-2026-10-03) the window is built here and Main.storyboard
+        // is never loaded, so its customClass was ignored and the weak-signal fallback never ran on iOS.
+        window?.rootViewController = MainViewController()
         window?.makeKeyAndVisible()
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
