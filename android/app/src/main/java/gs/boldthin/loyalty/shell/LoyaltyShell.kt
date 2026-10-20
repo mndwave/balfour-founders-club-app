@@ -142,6 +142,10 @@ class LoyaltyShell(
             addView(compose, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
         activity.addContentView(host, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // Re-registered on every show: the last callback added is asked first, and Capacitor adds its own (WebView back) when the
+        // bridge loads, after the one installed before load, so without this back steps the page and leaves this screen up.
+        back.remove()
+        activity.onBackPressedDispatcher.addCallback(activity, back)
         back.isEnabled = true
     }
 

@@ -68,6 +68,9 @@ class MemberCardOverlay(
             addView(compose, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
         activity.addContentView(host, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // Last callback added is asked first; Capacitor's WebView-back callback is added when the bridge loads, after this one.
+        back.remove()
+        activity.onBackPressedDispatcher.addCallback(activity, back)
         activity.window.apply {
             addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             savedBrightness = attributes.screenBrightness
