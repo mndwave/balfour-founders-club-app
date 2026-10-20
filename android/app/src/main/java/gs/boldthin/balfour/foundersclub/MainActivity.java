@@ -17,6 +17,7 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 import gs.boldthin.loyalty.card.CardBrand;
 import gs.boldthin.loyalty.card.MemberCardOverlay;
+import gs.boldthin.loyalty.shell.LoyaltyShell;
 
 public class MainActivity extends BridgeActivity {
     // BALFOUR-OFFLINE-LOAD-TIMEOUT-2026-10-19 (healer:52c5943e, port of Randalls RR-OFFLINE-LOAD-TIMEOUT):
@@ -32,6 +33,12 @@ public class MainActivity extends BridgeActivity {
     // www/offline.html stays underneath for a member with no saved card yet. Closing the card goes back to
     // the live site.
     private MemberCardOverlay card;
+
+    // LOYALTY-NATIVE-SHELL-2026-10-20 (healer:6d37d06c, port of healer:1c19eae5): the native shell. Screens this build
+    // draws natively (card, history, as the screen gate allows) open natively; every other screen stays the hosted
+    // page in this one bridge WebView, which keeps every Capacitor plugin the pages use. See
+    // gs.boldthin.loyalty.shell.LoyaltyShell.
+    private LoyaltyShell shell;
 
     // ANDROID-15-EDGE-TO-EDGE-NEVER-ENGAGED-2026-07-30 (Kyle, live device
     // investigation — read @capacitor/status-bar's ACTUAL Java source, not
@@ -77,9 +84,30 @@ public class MainActivity extends BridgeActivity {
         if (getBridge() != null && getBridge().getWebView() != null) {
             getBridge().getWebView().setBackgroundColor(Color.parseColor("#fbf6ed"));
         }
+    }
+
+    @Override
+    protected void load() {
+        // The bridge loads its first page inside super.load(): the shell's JS interface and document-start script go
+        // on the WebView before that, or the first page would never see them.
+        card = new MemberCardOverlay(this, CardBrand.BALFOUR, BalfourCard.ART, () -> {
+            reloadLiveIfOnErrorPage();
+            if (shell != null) shell.onCardClosed();
+        });
+        WebView wv = findViewById(com.getcapacitor.android.R.id.webview);
+        if (wv != null) {
+            shell = BalfourShell.create(this, wv, card);
+            shell.installBeforeFirstLoad();
+        }
+        super.load();
         Bridge b = getBridge();
-        card = new MemberCardOverlay(this, CardBrand.BALFOUR, BalfourCard.ART, this::reloadLiveIfOnErrorPage);
-        if (b != null) b.setWebViewClient(new TimeoutClient(b, () -> card.show()));
+        if (b != null) b.setWebViewClient(new TimeoutClient(b, () -> card.show(), shell));
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (shell != null) shell.onResume();
     }
 
     @Override
@@ -101,6 +129,7 @@ public class MainActivity extends BridgeActivity {
     private static class TimeoutClient extends BridgeWebViewClient {
         private final Bridge bridge;
         private final Runnable onErrorPage;
+        private final LoyaltyShell shell;
         private final Handler handler = new Handler(Looper.getMainLooper());
         private Runnable pending;
         // A main-frame load error shows the card at once, not only via the error page starting: WebView can
@@ -108,10 +137,17 @@ public class MainActivity extends BridgeActivity {
         // disarms the stall timer, so the card would never show.
         private boolean mainFrameFailed;
 
-        TimeoutClient(Bridge bridge, Runnable onErrorPage) {
+        TimeoutClient(Bridge bridge, Runnable onErrorPage, LoyaltyShell shell) {
             super(bridge);
             this.bridge = bridge;
             this.onErrorPage = onErrorPage;
+            this.shell = shell;
+        }
+
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            if (shell != null && request.isForMainFrame() && shell.interceptNavigation(request.getUrl().toString())) return true;
+            return super.shouldOverrideUrlLoading(view, request);
         }
 
         private boolean isLive(String url) {
@@ -160,6 +196,7 @@ public class MainActivity extends BridgeActivity {
         @Override
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
+            if (shell != null) shell.onPageFinished(view, url);
             disarm();
             final String errorUrl = bridge.getErrorUrl();
             if (mainFrameFailed && isLive(url) && errorUrl != null) {

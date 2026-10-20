@@ -78,6 +78,12 @@ APK=android/app/build/outputs/apk/release/app-release.apk
 AAB=android/app/build/outputs/bundle/release/app-release.aab
 "$BT/apksigner" verify --print-certs "$APK" | grep -E 'Signer #1 certificate (DN|SHA-256)'
 "$BT/aapt2" dump badging "$APK" | sed -n 1p
+# LOYALTY-NATIVE-SHELL-2026-10-20 (healer:6d37d06c): the build manifest of the native screens, as the device reads it. Without
+# the card and history in it the screen gate would send them to the hosted page.
+mkdir -p build
+unzip -p "$APK" assets/screens.json > build/screens.json 2>/dev/null || true
+grep -q '"card"' build/screens.json && grep -q '"history"' build/screens.json || { echo "BUILD REFUSED: assets/screens.json missing or without the card and history (emitScreensJson)"; exit 1; }
+echo "screens.json: $(cat build/screens.json)"
 echo "built version $VERSION_NAME (code $VERSION_CODE): APK + AAB from one gradle run, commit $(git rev-parse --short HEAD)"
 [ "$MODE" = "build" ] && exit 0
 
@@ -96,6 +102,8 @@ aws $R2 s3 cp "$APK" "s3://media/$PREFIX/balfour-founders-club-latest.apk" --con
 # F-Droid-style index: Obtainium's repo source reads real versionName/versionCode from it (no link guessing).
 node "$(dirname "$0")/obtainium-repo-index.mjs" build/index-v2.json "$PKG" "Balfour Founders Club" "$VERSION_NAME" "$VERSION_CODE" "$APK" "$VERSIONED" "https://media.seq1.net/$PREFIX" \
   && aws $R2 s3 cp build/index-v2.json "s3://media/$PREFIX/index-v2.json" --content-type application/json --cache-control no-cache --only-show-errors
+# The same screens.json the APK embeds, at parity.toml manifest_url, for seq1-healer's loyalty_native_parity watchdog.
+aws $R2 s3 cp build/screens.json "s3://media/$PREFIX/screens.json" --content-type application/json --cache-control no-cache --only-show-errors
 # Obtainium compares versionCode (the number in the filename), so refreshes stop flagging phantom updates.
 OBT_LINK="$(node "$(dirname "$0")/obtainium-link.mjs" "$PKG" "Balfour Founders Club" "https://media.seq1.net/$PREFIX/index.html")"
 cat > build/index.html <<HTML

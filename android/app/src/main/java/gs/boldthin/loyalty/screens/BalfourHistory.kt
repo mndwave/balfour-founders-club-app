@@ -36,6 +36,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlin.math.abs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -169,6 +175,8 @@ data class BalfourHistoryState(
     /** The member whose avatar the bar shows (initials; the uploaded photo is the shell's to load). */
     val avatarInitials: String = "BF",
     val avatarPair: Int = 0,
+    /** The member's uploaded photo (profile.avatar_url), when they have one: the web shows it instead of the initials. */
+    val avatarPhoto: androidx.compose.ui.graphics.ImageBitmap? = null,
 )
 
 private val InkSoft = BfColour.Ink.copy(alpha = 0.12f)
@@ -184,21 +192,43 @@ fun BalfourHistory(
     onRate: (orderId: String, stars: Int) -> Unit,
     onTurnOnReceipts: () -> Unit,
     onQuery: (mailto: String) -> Unit,
+    /** The web header's hamburger and avatar menu: the shell hands them to the hosted page underneath (no tab bar on this page). */
+    onMenu: () -> Unit = {},
+    onAvatar: () -> Unit = {},
 ) {
     val density = LocalDensity.current
     val type = remember(art, density) { BfType(art, density) }
     val groups = remember(state.cash, state.filter) { state.cash?.let { BalfourHistoryModel.groups(it, state.filter) } }
 
-    Column(Modifier.fillMaxSize().background(BfColour.Cream)) {
-        AppBar(state, art, type)
+    val statusTop = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    val scroll = rememberScrollState()
+    // AppTopBar slides away while scrolling down and returns on any scroll up (lib/useHideOnScroll.ts): hide after 80 px, 6 px dead zone.
+    var hidden by remember { mutableStateOf(false) }
+    LaunchedEffect(scroll, density) {
+        var lastY = 0f
+        snapshotFlow { scroll.value }.collect { px ->
+            val y = px / density.density
+            if (y <= 80f) {
+                hidden = false
+                lastY = y
+            } else if (abs(y - lastY) >= 6f) {
+                hidden = y > lastY
+                lastY = y
+            }
+        }
+    }
+    val slide by animateFloatAsState(if (hidden) 1f else 0f, tween(250, easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)), label = "app-bar")
+
+    // The bar floats over the page as on the web (fixed top-0); the content scrolls under it and keeps the web's 5rem gap.
+    Box(Modifier.fillMaxSize().background(BfColour.Cream)) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val viewport = maxHeight
             Column(
                 Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 24.dp, end = 24.dp, top = 15.dp, bottom = 24.dp)
-                    .heightIn(min = viewport - 39.dp),
+                    .verticalScroll(scroll)
+                    .padding(start = 24.dp, end = 24.dp, top = statusTop + 80.dp, bottom = 24.dp)
+                    .heightIn(min = viewport - statusTop - 104.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -232,12 +262,15 @@ fun BalfourHistory(
                 PoweredBy(type)
             }
         }
+        Box(Modifier.graphicsLayer { translationY = -slide * (statusTop + 65.dp).toPx() }) {
+            AppBar(state, art, type, onMenu, onAvatar)
+        }
     }
 }
 
 /** AppTopBar on a phone: cream block under the status bar, a 64 px row with the wordmark centred and the avatar menu right, a stroke hairline. */
 @Composable
-private fun AppBar(state: BalfourHistoryState, art: BalfourArt, type: BfType) {
+private fun AppBar(state: BalfourHistoryState, art: BalfourArt, type: BfType, onMenu: () -> Unit, onAvatar: () -> Unit) {
     val density = LocalDensity.current
     val statusTop = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     Box(
@@ -259,15 +292,38 @@ private fun AppBar(state: BalfourHistoryState, art: BalfourArt, type: BfType) {
                 contentScale = ContentScale.Fit,
                 colorFilter = ColorFilter.tint(Color.Black, BlendMode.SrcIn), // brightness-0: a black silhouette
             )
-            Row(Modifier.fillMaxWidth().padding(end = 28.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                Avatar(state.avatarInitials, state.avatarPair, type)
-                Spacer(Modifier.size(8.dp))
-                Canvas(Modifier.size(20.dp)) {
+            // DashboardSidebar's mobile trigger: 44 px square, 16 px from the left, 24 px icon in forest (lg:hidden).
+            Box(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 16.dp)
+                    .size(44.dp)
+                    .clickable(remember { MutableInteractionSource() }, null, onClick = onMenu),
+                contentAlignment = Alignment.Center,
+            ) {
+                Canvas(Modifier.size(24.dp)) {
                     val s = size.width / 24f
                     drawPath(
-                        Path().apply { moveTo(6f * s, 9f * s); lineTo(12f * s, 15f * s); lineTo(18f * s, 9f * s) },
-                        BfColour.MutedInk, style = Stroke(2f * s, cap = StrokeCap.Round, join = StrokeJoin.Round),
+                        Path().apply { moveTo(4f * s, 6f * s); lineTo(20f * s, 6f * s); moveTo(4f * s, 12f * s); lineTo(20f * s, 12f * s); moveTo(4f * s, 18f * s); lineTo(20f * s, 18f * s) },
+                        BfColour.Forest, style = Stroke(2f * s, cap = StrokeCap.Round, join = StrokeJoin.Round),
                     )
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(end = 28.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(Modifier.clickable(remember { MutableInteractionSource() }, null, onClick = onAvatar), verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(state.avatarInitials, state.avatarPair, state.avatarPhoto, type)
+                    Spacer(Modifier.size(8.dp))
+                    Canvas(Modifier.size(20.dp)) {
+                        val s = size.width / 24f
+                        drawPath(
+                            Path().apply { moveTo(6f * s, 9f * s); lineTo(12f * s, 15f * s); lineTo(18f * s, 9f * s) },
+                            BfColour.MutedInk, style = Stroke(2f * s, cap = StrokeCap.Round, join = StrokeJoin.Round),
+                        )
+                    }
                 }
             }
         }
@@ -275,7 +331,7 @@ private fun AppBar(state: BalfourHistoryState, art: BalfourArt, type: BfType) {
 }
 
 @Composable
-private fun Avatar(initials: String, pair: Int, type: BfType) {
+private fun Avatar(initials: String, pair: Int, photo: androidx.compose.ui.graphics.ImageBitmap?, type: BfType) {
     val (bg, fg) = when (pair) {
         0 -> BfColour.Forest to BfColour.Cream
         1 -> BfColour.Rose to BfColour.Ink
@@ -294,11 +350,15 @@ private fun Avatar(initials: String, pair: Int, type: BfType) {
             .background(bg, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(
-            initials,
-            style = type.display(21f, 21f, fg).copy(textAlign = TextAlign.Center),
-            modifier = Modifier.padding(top = 0.84.dp),
-        )
+        if (photo != null) {
+            androidx.compose.foundation.Image(photo, null, Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
+        } else {
+            BasicText(
+                initials,
+                style = type.display(21f, 21f, fg).copy(textAlign = TextAlign.Center),
+                modifier = Modifier.padding(top = 0.84.dp),
+            )
+        }
     }
 }
 

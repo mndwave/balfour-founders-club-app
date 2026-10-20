@@ -72,6 +72,7 @@ data class CardArt(
     @FontRes val sansFont: Int,
 )
 
+// loyalty-screen: card@1 (the /my-id page; emit-screens-json.sh reads this marker for the build manifest)
 // Colours from balfour-founders-club src/app/globals.css.
 private val Forest = Color(0xFF13342B)
 private val Cream = Color(0xFFFBF6ED)

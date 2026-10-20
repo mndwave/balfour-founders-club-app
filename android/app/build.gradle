@@ -57,6 +57,8 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
     implementation 'com.google.zxing:core:3.5.3'
+    // LOYALTY-NATIVE-SHELL-2026-10-20 (healer:6d37d06c): document-start script for the shell's link interceptor.
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
     implementation platform('androidx.compose:compose-bom:2025.06.00')
     implementation 'androidx.compose.ui:ui'
     implementation 'androidx.compose.foundation:foundation'
@@ -71,6 +73,28 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// LOYALTY-NATIVE-SHELL-2026-10-20 (healer:6d37d06c, port of healer:1c19eae5): the build manifest of the native screens (assets/screens.json), written
+// from the `loyalty-screen` markers in the native source by the contract's emitter (boldthings-services
+// definitions/loyalty_screens/emit-screens-json.sh). The screen gate reads it on the device; the release publishes the
+// same file beside the APK. A build without it would quietly send every screen to the hosted page, so a missing
+// emitter fails the build (-PloyaltyScreensDir=... points elsewhere).
+def loyaltyScreensDir = (project.findProperty("loyaltyScreensDir") ?: "${System.getProperty('user.home')}/boldthings-services/definitions/loyalty_screens").toString()
+def loyaltyScreensOut = layout.buildDirectory.dir("generated/loyalty-screens")
+def emitScreensJson = tasks.register('emitScreensJson', Exec) {
+    def emitter = file("$loyaltyScreensDir/emit-screens-json.sh")
+    inputs.dir('src/main/java')
+    inputs.file(emitter)
+    inputs.file(file("$loyaltyScreensDir/screens.toml"))
+    outputs.dir(loyaltyScreensOut)
+    doFirst {
+        if (!emitter.exists()) throw new GradleException("$emitter is missing: the build would ship no native screens (pass -PloyaltyScreensDir=<boldthings-services>/definitions/loyalty_screens)")
+        loyaltyScreensOut.get().asFile.mkdirs()
+    }
+    commandLine 'bash', emitter.path, '--brand', 'balfour', '--src', file('src/main/java').path, '--out', loyaltyScreensOut.get().file('screens.json').asFile.path
+}
+android.sourceSets.main.assets.srcDir(loyaltyScreensOut)
+tasks.named('preBuild') { dependsOn emitScreensJson }
 
 kotlin {
     compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 }
