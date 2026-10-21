@@ -440,6 +440,9 @@ private fun FilterPill(filter: HistoryFilter, active: Boolean, type: BfType, onC
     ) {
         BasicText(
             filter.label,
+            // CSS letter-spacing trails the last glyph, so the page pill is text + 32 + 1.75 wide; Compose only counts part of it:
+            // device frame diff showed each pill 1.2 css px narrower without this, 0.7 wider with the full 1.75 (healer:fae57e3f).
+            modifier = Modifier.padding(end = 1.2.dp),
             style = type.sans(14f, 20f, if (active) BfColour.Cream else BfColour.MutedInk, weight = 500, tracking = 1.75f),
             maxLines = 1,
         )
