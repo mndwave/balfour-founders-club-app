@@ -38,15 +38,22 @@ struct CssText: View {
     let color: Color
 
     var body: some View {
-        Text(text)
+        Text(spaced)
             .font(Font(font as CTFont))
-            .kerning(tracking)
             .foregroundColor(color)
             .lineLimit(1)
             .fixedSize()
-            // SwiftUI kerning stops at the last glyph; CSS letter-spacing also follows it, which moves
-            // centred text left by half the spacing.
+            // CSS letter-spacing also follows the last glyph, which moves centred text left by half the
+            // spacing. The kern is set on every glyph but the last (SwiftUI/CoreText disagree across OS
+            // versions on whether a trailing kern is applied), so this padding is the only trailing space.
             .padding(.trailing, tracking)
             .frame(height: lineHeight)
+    }
+
+    private var spaced: AttributedString {
+        var a = AttributedString(text)
+        a.kern = tracking
+        if let last = a.characters.indices.last { a[last..<a.endIndex].kern = 0 }
+        return a
     }
 }
