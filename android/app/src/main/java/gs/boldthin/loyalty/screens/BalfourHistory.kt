@@ -81,7 +81,7 @@ import kotlinx.coroutines.delay
 // balfour-founders-club src/app/(app)/history/page.tsx, measure for measure (CSS px == dp), shown settled (no
 // entrance animation). Same rules as the Randalls screens: a faithful copy of the web page, no new visible element,
 // data only from boldthings-services, no Capacitor dependency (moves unchanged into the native shell).
-// loyalty-screen: history@1
+// loyalty-screen: history@2 (v2 = the Randalls pill ScrollFade; Balfour wraps its pills, so this layout is unchanged)
 
 /** The brand's artwork and fonts (copies of the files the web page loads). */
 data class BalfourArt(
