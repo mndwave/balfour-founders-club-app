@@ -27,6 +27,16 @@ else
 fi
 
 cd ~/balfour-founders-club-app
+# RENDER-GATE-2026-10-23 (healer:4b3d7c53): the native card must match its React reference pixel for pixel. The gate
+# renders on the box (scripts/render-gate/render-gate.sh ios) and stamps the commit here on a pass; refuse a commit
+# without a stamp from the last 24 h (the reference is the live site, so an old pass can be out of date).
+RG_SHA=$(git -C ~/balfour-founders-club-app rev-parse HEAD)
+RG_STAMP=~/.render-gate/balfour-founders-club-app-$RG_SHA-ios.pass
+if [ ! -f "$RG_STAMP" ] || [ -n "$(find "$RG_STAMP" -mmin +1440)" ]; then
+  echo "❌ RENDER-GATE: no iOS render-gate pass for $RG_SHA in the last 24 h. On the box: ~/balfour-founders-club-app/scripts/render-gate/render-gate.sh ios"
+  exit 1
+fi
+echo "✅ RENDER-GATE: iOS render gate passed for $RG_SHA ($(cat "$RG_STAMP"))"
 # capacitor.config.json is generated (gitignored): regenerate it so the binary carries the
 # current server URL and plugin set, then refuse if the URL is not the public domain.
 npx cap sync ios

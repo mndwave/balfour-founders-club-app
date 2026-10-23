@@ -71,6 +71,9 @@ export KEY_ALIAS="balfour-founders-club"
 [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ] || { echo "keystore credentials not found in global.conf"; exit 1; }
 
 npx cap sync android >/dev/null
+# RENDER-GATE-2026-10-23 (healer:4b3d7c53): every native element must match its React reference pixel for pixel
+# (AGENTS.md). Refuse the build on any divergence; the fix is the native element, never a looser gate.
+env -u KEYSTORE_PASSWORD -u KEY_PASSWORD scripts/render-gate/render-gate.sh android || { echo "BUILD REFUSED: render gate failed (native element differs from the React reference)"; exit 1; }
 ( cd android && ./gradlew -q :app:bundleRelease -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME" && ./gradlew -q :app:assembleRelease -PapkAbi=arm64-v8a -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME" )
 unset KEYSTORE_PASSWORD KEY_PASSWORD
 

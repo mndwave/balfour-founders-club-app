@@ -32,6 +32,11 @@ android {
     buildFeatures {
         compose = true
     }
+    // HarServer (recorded API responses) serves both the Robolectric and the on-device render-gate tests.
+    sourceSets {
+        test.java.srcDirs += 'src/sharedTest/java'
+        androidTest.java.srcDirs += 'src/sharedTest/java'
+    }
     testOptions {
         unitTests.includeAndroidResources = true
     }
@@ -67,6 +72,9 @@ dependencies {
     testImplementation 'org.robolectric:robolectric:4.16'
     testImplementation 'androidx.compose.ui:ui-test-junit4'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
+    // Render gate on the emulator (scripts/render-gate, healer:4b3d7c53).
+    androidTestImplementation platform('androidx.compose:compose-bom:2025.06.00')
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

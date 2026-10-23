@@ -16,17 +16,19 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Renders the native member card with real Skia (Robolectric native graphics) at a 1080x2400 / 420dpi phone,
+ * Renders the native member card with real Skia (Robolectric native graphics) at a 412x915 dp / 480 dpi (3x) phone, the render gate size,
  * for the frame diff against the web My ID card. Writes a PNG only when CARD_RENDER_OUT is set.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w411dp-h914dp-port-420dpi")
+@Config(sdk = [35], qualifiers = "w412dp-h915dp-port-xxhdpi")
 class BalfourCardRenderTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     @Test fun rendersTheCard() {
-        val card = CardSnapshot(
+        // The render gate passes the GET /balfour/loyalty/portal/card payload its React reference was recorded with.
+        val fixture = System.getenv("CARD_FIXTURE")
+        val card = fixture?.let { CardSnapshot.fromCardPayload(File(it).readText(), "render-gate-fixture-token", 0, "")!! } ?: CardSnapshot(
             tag = "abcdefgh", memberNumber = "BF100234", qrPrefix = "", qrToken = "48213907",
             name = "Ann Example", tier = "Founder", cashBalance = 0.0, stars = 0, syncedAt = 0,
         )

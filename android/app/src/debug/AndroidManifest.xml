@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: the render gate's on-device test serves recorded API responses from 127.0.0.1 over plain HTTP
+     (scripts/render-gate, healer:4b3d7c53). Release builds keep the platform default (no cleartext). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <application android:networkSecurityConfig="@xml/render_gate_network" tools:ignore="UnusedAttribute" />
+</manifest>

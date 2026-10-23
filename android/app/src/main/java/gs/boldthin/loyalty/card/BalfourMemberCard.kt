@@ -146,13 +146,13 @@ fun BalfourMemberCard(
                             verticalArrangement = Arrangement.spacedBy(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            BasicText(FOUNDER_LABEL, style = type.display(14f, 20f, 3.92f, Cream))
+                            TrackedText(FOUNDER_LABEL, type.display(14f, 20f, 3.92f, Cream), 3.92f)
                             QrCardBox(qr, card.memberNumber, type) { clipboard.setText(AnnotatedString(card.memberNumber)) }
                             BasicText(STAFF_PROMPT, style = type.sans(16f, 26f, 0f, Cream))
                             if (offline) {
-                                BasicText(
+                                TrackedText(
                                     "NO CONNECTION · SAVED CARD",
-                                    style = type.sans(12f, 16f, 1.2f, Cream.copy(alpha = 0.7f)),
+                                    type.sans(12f, 16f, 1.2f, Cream.copy(alpha = 0.7f)), 1.2f,
                                 )
                             }
                             // WalletButtons on Android: the Google Wallet badge only, h-10 (min-width 100).
@@ -195,9 +195,19 @@ private fun QrCardBox(qr: QrMatrix, memberNumber: String, type: CardType, onCopy
                 .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onCopy),
             contentAlignment = Alignment.Center,
         ) {
-            BasicText(memberNumber, style = type.mono(12f, 16f, 2f, Ink.copy(alpha = 0.7f)))
+            TrackedText(memberNumber, type.mono(12f, 16f, 2f, Ink.copy(alpha = 0.7f)), 2f)
         }
     }
+}
+
+/**
+ * Letter-spaced text as CSS lays it out: CSS gives every glyph its letter-spacing, the last one included, so a centred
+ * tracked label is one gap wider than its ink. Android text drops the trailing gap, which put centred labels half a gap
+ * right of the page (render gate, healer:4b3d7c53; same as the iOS CssText fix and the history pills).
+ */
+@Composable
+private fun TrackedText(text: String, style: TextStyle, trackingCssPx: Float) {
+    BasicText(text, style = style, modifier = Modifier.padding(end = trackingCssPx.dp))
 }
 
 @Composable

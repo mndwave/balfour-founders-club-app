@@ -22,6 +22,16 @@ DOMAINS=(founders.balfourwinery.com balfour.boldthin.gs)
 APP_URL=https://founders.balfourwinery.com
 
 cd ~/balfour-founders-club-app
+# RENDER-GATE-2026-10-23 (healer:4b3d7c53): the native card must match its React reference pixel for pixel. The gate
+# renders on the box (scripts/render-gate/render-gate.sh ios) and stamps the commit here on a pass; refuse a commit
+# without a stamp from the last 24 h (the reference is the live site, so an old pass can be out of date).
+RG_SHA=$(git -C ~/balfour-founders-club-app rev-parse HEAD)
+RG_STAMP=~/.render-gate/balfour-founders-club-app-$RG_SHA-ios.pass
+if [ ! -f "$RG_STAMP" ] || [ -n "$(find "$RG_STAMP" -mmin +1440)" ]; then
+  echo "❌ RENDER-GATE: no iOS render-gate pass for $RG_SHA in the last 24 h. On the box: ~/balfour-founders-club-app/scripts/render-gate/render-gate.sh ios"
+  exit 1
+fi
+echo "✅ RENDER-GATE: iOS render gate passed for $RG_SHA ($(cat "$RG_STAMP"))"
 npx cap sync ios
 grep -q "\"url\": \"$APP_URL\"" ios/App/App/capacitor.config.json || { echo "❌ CONFIG-GUARD: server.url is not $APP_URL"; exit 1; }
 
