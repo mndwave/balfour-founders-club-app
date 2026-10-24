@@ -1,0 +1,25 @@
+{
+  "site": "https://founders.balfourwinery.com",
+  "path": "/dashboard",
+  "click": "a[href='/my-id']",
+  "keepOnly": "div.fixed.inset-0.z-\\[100\\]",
+  "webRepo": "randalls-rewards",
+  "har": "scripts/render-gate/fixtures/my-id-overlay.har",
+  "tokenKey": "balfour_member_token",
+  "fixtureCard": "scripts/card-page/fixture.json",
+  "out": "android/app/src/main/assets/card/card.html",
+  "slots": {
+    "box": "body > div.fixed.inset-0 div.bg-white.p-4",
+    "qr": "body > div.fixed.inset-0 svg[role='img']",
+    "number": "body > div.fixed.inset-0 button[title]",
+    "close": "body > div.fixed.inset-0 button[aria-label='Close']",
+    "wallet": "body > div.fixed.inset-0 button[aria-label='Add to Google Wallet']"
+  },
+  "runtime": {
+    "fit": null,
+    "qrFg": "#212322",
+    "offlineClass": null,
+    "copied": "Copied ✓",
+    "copiedTitle": "Copied!"
+  }
+}

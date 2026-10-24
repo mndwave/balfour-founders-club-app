@@ -32,11 +32,6 @@ android {
     buildFeatures {
         compose = true
     }
-    // HarServer (recorded API responses) serves both the Robolectric and the on-device render-gate tests.
-    sourceSets {
-        test.java.srcDirs += 'src/sharedTest/java'
-        androidTest.java.srcDirs += 'src/sharedTest/java'
-    }
     testOptions {
         unitTests.includeAndroidResources = true
     }

@@ -24,9 +24,10 @@ which="${1:-all}"
 fail=0
 
 # element  page     har           native file   [DOM click that opens it, as the app does]
+# Android: the card is the bundled offline copy of the My ID overlay painted by the WebView (CardPage,
+# CARD-PAGE-WEBVIEW-2026-10-24); the gate proves the copy still equals the deployed page. History is the live page in the app.
 ANDROID=(
   "card    /dashboard my-id-overlay.har native-card.png a[href='/my-id']"
-  "history /history history.har   native-history.png"
 )
 IOS=(
   "card    /dashboard my-id-overlay.har bf-native-ios-card.png a[href='/my-id']"

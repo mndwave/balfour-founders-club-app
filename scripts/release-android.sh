@@ -71,6 +71,9 @@ export KEY_ALIAS="balfour-founders-club"
 [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ] || { echo "keystore credentials not found in global.conf"; exit 1; }
 
 npx cap sync android >/dev/null
+# CARD-PAGE-WEBVIEW-2026-10-24 (healer:4b3d7c53): the member card ships as the bundled offline copy of the live page, rebuilt
+# here from the deployed site so every release carries the current card (refuses if the copy cannot be proven equal).
+node scripts/card-page/build-card-page.mjs || { echo "BUILD REFUSED: the card page copy could not be built"; exit 1; }
 # RENDER-GATE-2026-10-23 (healer:4b3d7c53): every native element must match its React reference pixel for pixel
 # (AGENTS.md). Refuse the build on any divergence; the fix is the native element, never a looser gate.
 env -u KEYSTORE_PASSWORD -u KEY_PASSWORD scripts/render-gate/render-gate.sh android || { echo "BUILD REFUSED: render gate failed (native element differs from the React reference)"; exit 1; }

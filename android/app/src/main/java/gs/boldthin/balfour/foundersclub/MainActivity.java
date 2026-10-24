@@ -28,14 +28,16 @@ public class MainActivity extends BridgeActivity {
     private static final String LIVE_URL = "https://founders.balfourwinery.com";
 
     // LOYALTY-NATIVE-CARD-BALFOUR-2026-10-20 (healer:716e5320, sub-task of healer:cdefd3a3): whenever the live
-    // site cannot paint (the error page is loading), the native member card covers it at once from the device
-    // snapshot: a native copy of the web My ID card, so the QR never waits on the network or on the WebView.
+    // site cannot paint (the error page is loading), the member card covers it at once from the device
+    // snapshot: the bundled offline copy of the web My ID card (CardPage, CARD-PAGE-WEBVIEW-2026-10-24), so the
+    // QR never waits on the network.
     // www/offline.html stays underneath for a member with no saved card yet. Closing the card goes back to
     // the live site.
     private MemberCardOverlay card;
 
     // LOYALTY-NATIVE-SHELL-2026-10-20 (healer:6d37d06c, port of healer:1c19eae5): the native shell. Screens this build
-    // draws natively (card, history, as the screen gate allows) open natively; every other screen stays the hosted
+    // opens from the device (the card, as the screen gate allows; history is the live page, CARD-PAGE-WEBVIEW-2026-10-24,
+    // healer:4b3d7c53); every other screen stays the hosted
     // page in this one bridge WebView, which keeps every Capacitor plugin the pages use. See
     // gs.boldthin.loyalty.shell.LoyaltyShell.
     private LoyaltyShell shell;

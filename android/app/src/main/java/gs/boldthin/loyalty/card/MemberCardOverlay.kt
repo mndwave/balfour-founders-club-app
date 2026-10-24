@@ -1,5 +1,7 @@
 package gs.boldthin.loyalty.card
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
@@ -13,16 +15,18 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.platform.ComposeView
 import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
 
+/** What the card overlay needs of the brand: the colour under the card page before its first frame. */
+data class CardArt(val pageBackground: Int)
+
 /**
- * Puts the native member card over the activity, from the device snapshot, with no network wait, then
- * freshens it from GET /balfour/loyalty/portal/card. Keeps the screen awake and at full brightness while shown,
- * as the web /qr page does through the keep-awake and screen-brightness plugins.
+ * Puts the member card over the activity, from the device snapshot, with no network wait, then freshens it from
+ * GET /balfour/loyalty/portal/card. The card itself is the React My ID card painted by a WebView from the bundled offline
+ * copy of the page (CardPage, CARD-PAGE-WEBVIEW-2026-10-24); this overlay keeps the screen awake and at full brightness
+ * while it shows, as the web page does through the keep-awake and screen-brightness plugins.
  */
 class MemberCardOverlay(
     private val activity: ComponentActivity,
@@ -34,8 +38,9 @@ class MemberCardOverlay(
     private val store = CardStore(activity, brand)
     private val client = CardClient(brand)
     private val main = Handler(Looper.getMainLooper())
-    private val card = mutableStateOf<CardSnapshot?>(null)
-    private val offline = mutableStateOf(false)
+    private var card: CardSnapshot? = null
+    private var offline = false
+    private var page: CardPage? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var host: FrameLayout? = null
     private var savedBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
@@ -53,19 +58,15 @@ class MemberCardOverlay(
     fun show(): Boolean {
         if (host != null) return true
         val saved = store.load() ?: return false
-        card.value = saved
-        offline.value = !hasNetwork()
-        val compose = ComposeView(activity).apply {
-            setContent {
-                card.value?.let {
-                    BalfourMemberCard(it, offline.value, art, onClose = ::close, onAddToGoogleWallet = ::addToGoogleWallet)
-                }
-            }
-        }
+        card = saved
+        offline = !hasNetwork()
+        val web = CardPage(activity, onClose = ::close, onWallet = ::addToGoogleWallet, onCopy = ::copy, background = art.pageBackground)
+        web.show(saved, offline)
+        page = web
         // Clickable host: touches that the card does not use never reach the WebView underneath.
         host = FrameLayout(activity).apply {
             isClickable = true
-            addView(compose, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
         activity.addContentView(host, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         // Last callback added is asked first; Capacitor's WebView-back callback is added when the bridge loads, after this one.
@@ -87,6 +88,8 @@ class MemberCardOverlay(
         val h = host ?: return
         (h.parent as? ViewGroup)?.removeView(h)
         host = null
+        page?.destroy()
+        page = null
         back.isEnabled = false
         unwatchNetwork()
         activity.window.apply {
@@ -106,14 +109,18 @@ class MemberCardOverlay(
                 when (result) {
                     is CardClient.Result.Ok -> {
                         store.save(result.card)
-                        card.value = result.card
-                        offline.value = false
+                        card = result.card
+                        offline = false
+                        page?.show(result.card, false)
                     }
                     // A signed-out session keeps showing the saved card; the web app signs the member out.
                     CardClient.Result.SignedOut -> Unit
                     CardClient.Result.Failed -> Unit
                     CardClient.Result.Unreachable ->
-                        if (retry) main.postDelayed({ if (host != null) refresh(retry = false) }, 1500) else offline.value = true
+                        if (retry) main.postDelayed({ if (host != null) refresh(retry = false) }, 1500) else {
+                            offline = true
+                            card?.let { page?.show(it, true) }
+                        }
                 }
             }
         }.start()
@@ -160,6 +167,12 @@ class MemberCardOverlay(
                 activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(saveUrl)))
             }
         }.start()
+    }
+
+    /** CopyText on the page: the scan value to the clipboard (the page shows its own "Copied" state). */
+    private fun copy(text: String) {
+        val cm = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        try { cm.setPrimaryClip(ClipData.newPlainText("Member number", text)) } catch (e: Exception) { }
     }
 
     private fun hasNetwork(): Boolean {

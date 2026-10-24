@@ -75,7 +75,9 @@ class ScreenGateTest {
     }
 
     @Test fun brandPathsAreTheContracts() {
-        // Each ShellBrand.screenPaths must be screens.toml's [screens.<id>.web] paths for that brand, no more, no less.
+        // Each ShellBrand.screenPaths entry must be one of screens.toml's [screens.<id>.web] paths for that brand, with the same
+        // id. A subset: on Android only the card opens from the device; tiers and history are the live pages
+        // (CARD-PAGE-WEBVIEW-2026-10-24, healer:4b3d7c53), though the contract still lists them.
         val toml = File(System.getProperty("user.home"), "boldthings-services/definitions/loyalty_screens/screens.toml")
         if (!toml.exists()) return
         for ((name, brand) in mapOf("randalls" to ShellBrand.RANDALLS, "balfour" to ShellBrand.BALFOUR)) {
@@ -87,7 +89,8 @@ class ScreenGateTest {
                 val id = web ?: return@forEach
                 Regex("^" + name + """\s*=\s*"([^"]+)"""").find(line)?.let { want[it.groupValues[1]] = id }
             }
-            assertEquals(name, want, brand.screenPaths)
+            for ((path, id) in brand.screenPaths) assertEquals("$name $path", want[path], id)
+            assertEquals(name, "card", brand.screenPaths.values.single())
         }
     }
 
@@ -95,7 +98,7 @@ class ScreenGateTest {
         val b = ShellBrand.BALFOUR
         assertEquals("card", b.screenFor("/my-id"))
         assertEquals("card", b.screenFor("/my-id/?x=1"))
-        assertEquals("history", b.screenFor("/history#top"))
+        assertNull(b.screenFor("/history#top"))
         assertNull(b.screenFor("/qr"))
         assertNull(b.screenFor("/tiers"))
         assertNull(b.screenFor("/dashboard"))
@@ -103,10 +106,10 @@ class ScreenGateTest {
 
     @Test fun brandPathsFollowTheContract() {
         val b = ShellBrand.RANDALLS
-        assertEquals("tiers", b.screenFor("/tiers"))
-        assertEquals("tiers", b.screenFor("/tiers/?embed=1#x"))
+        assertNull(b.screenFor("/tiers"))
         assertEquals("card", b.screenFor("/qr"))
-        assertEquals("history", b.screenFor("/history"))
+        assertEquals("card", b.screenFor("/qr/?embed=1#x"))
+        assertNull(b.screenFor("/history"))
         assertNull(b.screenFor("/rewards"))
         assertNull(b.screenFor("/"))
     }
