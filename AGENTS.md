@@ -35,6 +35,14 @@ copies identical apart from `render-gate.sh`'s site, token key and element table
   (cleartext for 127.0.0.1 in debug builds only). iOS `ios/LoyaltyCard` `RenderGateTests` on a fresh iPhone 17 / iOS 27
   simulator via `ios-native.sh`. Robolectric (`BalfourCardRenderTest`, `RenderGateScreensTest`) is a quick geometry check
   only: it skips variable-font axes.
+- **iOS native render (found by running it, 2026-10-23):** a package test has no window scene, so `drawHierarchy`
+  draws nothing; `RenderGateTests` draws through `ImageRenderer.render` into its own 8-bit sRGB bitmap and fails a
+  single-colour render. ImageRenderer cannot draw a `ScrollView`, so the card's scroller is `CardScroll`, laid out
+  statically (same geometry) only when the test sets `\.cardStaticRender`. Never put an explicit `.top` alignment
+  guide inside a card element: frames forward it and the parent ZStack aligns by it.
+- **Match WebKit, do not approximate it:** QR modules follow WebKit's `crispEdges` (a dark run from the floor of its
+  edge to the ceiling, fitted on every module edge of the reference). Rasters the page paints from an SVG or rescales
+  (wallet badge; Balfour logo) ship as WebKit's own paint at the exact device-pixel box and are drawn 1:1.
 - **Diff:** `diff.mjs`, full colour, per pixel, channel delta > 16/255, fail above 0.2% of pixels, diff PNG on failure.
   No baselines, no recorded gaps. Never loosen it to pass a real divergence; a harness-caused failure is fixed in the harness.
 - **Fixtures:** recorded from a synthetic member (`create_test_loyalty_session` with `tenant=balfour`; PATCH

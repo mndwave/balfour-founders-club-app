@@ -8,6 +8,9 @@
 #   ios-native.sh <app dir> <prefix> <out dir> <site> <path> <har> <token key> [click selector]
 set -uo pipefail
 APP="$1"; P="$2"; OUT="$3"; SITE="$4"; PAGE="$5"; HAR="$6"; TOKEN_KEY="$7"; CLICK="${8:-}"
+# Shell-quoted for the remote bash: inside the unquoted heredoc below the selector's own quotes are stripped
+# (a[href='/my-id'] arrived as a[href=/my-id], an invalid selector).
+CLICK_Q="$(printf '%q' "$CLICK")"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 MAC="${RENDER_GATE_MAC:-macbook}"
 D="render-gate-$P-$$"
@@ -23,7 +26,7 @@ cd ~/$D
   && { [ -f package.json ] || echo '{"name":"render-gate-tools","private":true}' > package.json; } \
   && npm install --no-audit --no-fund playwright@1.62.1 && npx playwright install webkit && cd ~/$D; } || exit 1
 RENDER_GATE_PLAYWRIGHT_FROM=~/render-gate-tools node reference.mjs --site "$SITE" --path "$PAGE" --har "$HAR" \
-  --out ~/$D/react.png --engine webkit --w 402 --h 874 --dpr 3 --token-key "$TOKEN_KEY" ${CLICK:+--click "$CLICK"} || exit 1
+  --out ~/$D/react.png --engine webkit --w 402 --h 874 --dpr 3 --token-key "$TOKEN_KEY" ${CLICK:+--click $CLICK_Q} || exit 1
 [ -x ~/bin/mac-load-guard ] && { ~/bin/mac-load-guard admit simulator || exit 75; }
 SIM=\$(xcrun simctl create render-gate-$P-$$ "iPhone 17" com.apple.CoreSimulator.SimRuntime.iOS-27-0) || exit 1
 cd LoyaltyCard
@@ -34,5 +37,5 @@ xcrun simctl shutdown \$SIM >/dev/null 2>&1; xcrun simctl delete \$SIM
 exit \$rc
 REMOTE
 rc=$?
-[ $rc = 0 ] || { echo "ios-native: exit $rc (log $OUT/ios-$P.log)"; exit $rc; }
+[ $rc = 0 ] || { scp -q "$MAC:$D/native.png" "$OUT/$P-native-ios-card-FAILED.png" 2>/dev/null; echo "ios-native: exit $rc (log $OUT/ios-$P.log)"; exit $rc; }
 scp -q "$MAC:$D/native.png" "$OUT/$P-native-ios-card.png" && scp -q "$MAC:$D/react.png" "$OUT/ios-card-react.png"
