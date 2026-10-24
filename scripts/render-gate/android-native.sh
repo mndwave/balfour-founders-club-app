@@ -15,13 +15,23 @@ export ANDROID_HOME="${ANDROID_HOME:-$HOME/android-sdk}"
 APK="$APP/android/app/build/outputs/apk/debug/app-debug.apk"
 TAPK="$APP/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
 exec 9>"$LOCK"
-flock -w "${RENDER_GATE_LANE_WAIT:-2700}" 9 || { echo "android-native: emulator lane busy"; exit 75; }
+# The lane is one shared AVD behind one lock, owned by ~/seq1-sessions-native (E2E-LANE-ENSURE-2026-10-24, healer:fc5a8a10): queue first come
+# first served, then let the lane boot the AVD for us (it lives on the hetzner-build node; this box has no KVM) and reach it with the
+# lane's adb wrapper (tunnel to that node's adb server). A plain adb here sees no emulator, which is how the 2026-10-24 run stalled.
+LANE="${E2E_LANE_DIR:-$HOME/seq1-sessions-native/scripts}"
+[ -x "$LANE/e2e-emulator.sh" ] || { echo "android-native: lane scripts missing ($LANE): retry"; exit 75; }
+. "$LANE/e2e-queue.sh"
+e2e_queue_acquire "${RENDER_GATE_LANE_WAIT:-2700}" "render-gate $PKG" || { echo "android-native: emulator lane busy"; exit 75; }
+echo "render-gate $PKG pid $$ cwd $PWD since $(date -u +%FT%TZ)" > "$HOME/.cache/seq1-native-e2e.holder"
 export SEQ1_E2E_LOCK_HELD=1
-DEV="${ANDROID_SERIAL:-$("$ADB" devices | awk '/emulator-.*device$/ {print $1; exit}')}"
-[ -n "$DEV" ] || { echo "android-native: no emulator attached (the shared AVD is booted by the hetzner-build lane): retry"; exit 75; }
-A=("$ADB" -s "$DEV")
+ADB="$LANE/adb-nolock"
+WAS_UP=0; "$ADB" get-state >/dev/null 2>&1 && WAS_UP=1
+"$LANE/e2e-emulator.sh" ensure > "$OUT/android-emulator.log" 2>&1 || { echo "android-native: emulator ensure failed ($OUT/android-emulator.log): retry"; exit 75; }
+A=("$ADB")
 cleanup() { "${A[@]}" uninstall "$PKG" >/dev/null 2>&1; "${A[@]}" uninstall "$PKG.test" >/dev/null 2>&1; "${A[@]}" shell rm -rf "$DEVDIR" >/dev/null 2>&1; }
-trap cleanup EXIT
+# We booted it, we power it down (the lane stops it when the last gate leaves; stop is a no-op while a release holds a lease).
+stopped() { [ "$WAS_UP" = 1 ] || "$LANE/e2e-emulator.sh" stop >/dev/null 2>&1; }
+trap 'cleanup; stopped' EXIT
 cleanup
 "${A[@]}" install -r "$APK" >/dev/null && "${A[@]}" install -r "$TAPK" >/dev/null || { echo "android-native: install failed"; exit 1; }
 "${A[@]}" shell mkdir -p "$DEVDIR" && "${A[@]}" push "$HERE/fixtures" "$DEVDIR/" >/dev/null && "${A[@]}" shell chmod -R a+rX "$DEVDIR"
