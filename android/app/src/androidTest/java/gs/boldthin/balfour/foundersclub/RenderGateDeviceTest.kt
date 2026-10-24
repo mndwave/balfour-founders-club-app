@@ -46,7 +46,9 @@ class RenderGateDeviceTest {
     // The reference renders in Europe/London (reference.mjs); the ledger formats dates in the device zone.
     init { java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Europe/London")) }
 
-    private fun capture(name: String, ready: () -> Boolean = { true }, content: @Composable () -> Unit) {
+    // A screen that never becomes ready fails with what the recorded-API server saw and what a direct call to it returns,
+    // so a harness fault (network policy, server, path) is named, never a bare 15 s timeout (GATE-HARDEN, healer:4b3d7c53).
+    private fun capture(name: String, ready: () -> Boolean = { true }, why: () -> String = { "" }, content: @Composable () -> Unit) {
         lateinit var view: ComposeView
         compose.runOnUiThread {
             val window = compose.activity.window
@@ -61,7 +63,11 @@ class RenderGateDeviceTest {
                 ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
             )
         }
-        compose.waitUntil(15_000) { ready() }
+        try {
+            compose.waitUntil(15_000) { ready() }
+        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            throw AssertionError("$name: not ready after 15 s; ${why()}", e)
+        }
         Thread.sleep(800)
         compose.waitForIdle()
         val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
@@ -94,8 +100,18 @@ class RenderGateDeviceTest {
             val expect = setOf(
                 "/balfour/loyalty/portal/transactions?limit=100&offset=0", "/balfour/loyalty/portal/me", "/balfour/loyalty/portal/site-copy",
             )
-            capture("native-history.png", ready = { server.served.containsAll(expect) }) { BalfourHistoryRoute(ctx, BalfourScreens.ART) }
+            capture("native-history.png", ready = { server.served.containsAll(expect) }, why = { diagnose(server, expect) }) { BalfourHistoryRoute(ctx, BalfourScreens.ART) }
         }
+    }
+
+    private fun diagnose(server: HarServer, expect: Set<String>): String {
+        val missing = expect - server.served
+        val probe = try {
+            PortalClient(server.base).get(missing.firstOrNull() ?: expect.first(), "render-gate-fixture-token").toString().take(160)
+        } catch (t: Throwable) {
+            t.toString()
+        }
+        return "served=${server.served} missing=$missing directCall=$probe"
     }
 
     private companion object {

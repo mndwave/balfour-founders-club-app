@@ -35,9 +35,13 @@ trap 'cleanup; stopped' EXIT
 cleanup
 "${A[@]}" install -r "$APK" >/dev/null && "${A[@]}" install -r "$TAPK" >/dev/null || { echo "android-native: install failed"; exit 1; }
 "${A[@]}" shell mkdir -p "$DEVDIR" && "${A[@]}" push "$HERE/fixtures" "$DEVDIR/" >/dev/null && "${A[@]}" shell chmod -R a+rX "$DEVDIR"
+"${A[@]}" logcat -c >/dev/null 2>&1
 "${A[@]}" shell am instrument -w -e renderGateDir "$DEVDIR" -e class "$CLASS" "$PKG.test/androidx.test.runner.AndroidJUnitRunner" \
   > "$OUT/android-instrument.log" 2>&1
-grep -q '^OK (' "$OUT/android-instrument.log" || { echo "android-native: render test failed ($OUT/android-instrument.log)"; exit 1; }
+# On failure keep the device log of the run (app, test runner, network policy, crashes) next to the instrument output.
+grep -q '^OK (' "$OUT/android-instrument.log" || {
+  "${A[@]}" logcat -d -v time 2>/dev/null | grep -E "$PKG|TestRunner|AndroidRuntime|System.err|NetworkSecurity|[Cc]leartext" > "$OUT/android-logcat.txt"
+  echo "android-native: render test failed ($OUT/android-instrument.log, $OUT/android-logcat.txt)"; exit 1; }
 for f in $("${A[@]}" shell run-as "$PKG" ls files/render-gate); do
   "${A[@]}" exec-out run-as "$PKG" cat "files/render-gate/$f" > "$OUT/$f"
 done
