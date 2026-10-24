@@ -36,8 +36,18 @@ struct CssText: View {
     let lineHeight: CGFloat
     var tracking: CGFloat = 0
     let color: Color
+    /// A text-align:center line: fills the width it is given and is placed as WebKit places it (CssCentredLine).
+    var centred = false
 
     var body: some View {
+        if centred {
+            CssCentredLine(text: text, font: font, lineHeight: lineHeight, tracking: tracking, color: color)
+        } else {
+            inline
+        }
+    }
+
+    private var inline: some View {
         Text(spaced)
             .font(Font(font as CTFont))
             .foregroundColor(color)
@@ -55,5 +65,58 @@ struct CssText: View {
         a.kern = tracking
         if let last = a.characters.indices.last { a[last..<a.endIndex].kern = 0 }
         return a
+    }
+}
+
+/// A centred CSS line drawn the way WebKit draws it, so its glyphs land on the page's device pixels. SwiftUI's layout is
+/// float (the same box tops and starts as WebKit's, traced on the gate), but a Text draws from a pixel-snapped origin
+/// and WebKit does not: both snap each glyph to a whole device pixel from the line's start, so a start 0.36 px apart
+/// moved about every third glyph of "HOLD UP TO THE SCANNER AT THE TILL" one pixel left of the page (render gate,
+/// RENDER-GATE-TEXT-ORIGIN-2026-10-24, healer:4b3d7c53). Here, as in WebKit: the line is as wide as its advances plus
+/// letter-spacing after every glyph (the last included), rounded up to a layout unit (1/64 px); it starts at half the
+/// free width, rounded down to a layout unit; the baseline is the half-leading one, floored to a device pixel (fitted
+/// on the gate: 1746.53 -> 1746, 1968.90 -> 1968, 1580.30 -> 1580); glyphs are not subpixel-positioned.
+struct CssCentredLine: View {
+    let text: String
+    let font: UIFont
+    let lineHeight: CGFloat
+    let tracking: CGFloat
+    let color: Color
+    @Environment(\.displayScale) private var scale
+
+    var body: some View {
+        GeometryReader { g in
+            let top = g.frame(in: .global).minY
+            Canvas { ctx, size in draw(ctx, width: size.width, globalTop: top) }
+        }
+        .frame(height: lineHeight)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement()
+        .accessibilityLabel(text)
+    }
+
+    private func draw(_ ctx: GraphicsContext, width: CGFloat, globalTop: CGFloat) {
+        var attrs: [NSAttributedString.Key: Any] = [
+            NSAttributedString.Key(kCTFontAttributeName as String): font,
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): UIColor(color).cgColor,
+        ]
+        // A kern of 0 turns the font's pair kerning off in CoreText (the Balfour staff line drifted -1..+2 px), so it is
+        // only set for letter-spacing.
+        if tracking != 0 { attrs[NSAttributedString.Key(kCTKernAttributeName as String)] = tracking }
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attrs))
+        var ascent: CGFloat = 0, descent: CGFloat = 0
+        let w = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, nil))
+        let unit: CGFloat = 64
+        let x = ((width - (w * unit).rounded(.up) / unit) / 2 * unit).rounded(.down) / unit
+        let baseline = ((globalTop + (lineHeight - ascent - descent) / 2 + ascent) * scale).rounded(.down) / scale - globalTop
+        ctx.withCGContext { cg in
+            cg.saveGState()
+            cg.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
+            cg.setAllowsFontSubpixelPositioning(false)
+            cg.setShouldSubpixelPositionFonts(false)
+            cg.textPosition = CGPoint(x: x, y: baseline)
+            CTLineDraw(line, cg)
+            cg.restoreGState()
+        }
     }
 }

@@ -42,7 +42,13 @@ copies identical apart from `render-gate.sh`'s site, token key and element table
   guide inside a card element: frames forward it and the parent ZStack aligns by it.
 - **Match WebKit, do not approximate it:** QR modules follow WebKit's `crispEdges` (a dark run from the floor of its
   edge to the ceiling, fitted on every module edge of the reference). Rasters the page paints from an SVG or rescales
-  (wallet badge; Balfour logo) ship as WebKit's own paint at the exact device-pixel box and are drawn 1:1.
+  (wallet badge; Balfour logo; Randalls crest) ship as WebKit's own paint at the exact device-pixel box and are drawn
+  1:1: capture one with `reference.mjs ... --engine webkit --raster <selector> --raster-out <png>` on the Mac.
+- **Centred text is drawn as WebKit draws it** (`CssText(..., centred: true)` -> `CssCentredLine`): a SwiftUI `Text`
+  draws from a pixel-snapped origin, WebKit from the float one, and both snap each glyph to a whole device pixel, so a
+  fraction apart moves glyphs a pixel. Start = (width - line width rounded up to 1/64) / 2, rounded down to 1/64;
+  baseline = half-leading baseline floored to a device pixel; no subpixel glyph positioning. SwiftUI layout itself is
+  float and matches WebKit's boxes (traced). `reference.mjs --eval <js>` prints page layout values for fitting a rule.
 - **Diff:** `diff.mjs`, full colour, per pixel, channel delta > 16/255, fail above 0.2% of pixels, diff PNG on failure.
   No baselines, no recorded gaps. Never loosen it to pass a real divergence; a harness-caused failure is fixed in the harness.
 - **Fixtures:** recorded from a synthetic member (`create_test_loyalty_session` with `tenant=balfour`; PATCH

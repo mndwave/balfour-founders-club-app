@@ -90,11 +90,11 @@ public struct BalfourMemberCard: View {
 
     private func content(width: CGFloat) -> some View {
         VStack(spacing: 24) {
-            CssText(text: founderLabel, font: CardType.optimaBold(14), lineHeight: 20, tracking: 3.92, color: cream)
+            CssText(text: founderLabel, font: CardType.optimaBold(14), lineHeight: 20, tracking: 3.92, color: cream, centred: true)
             QrCardBox(width: width - 48, scanValue: card.scanValue, memberNumber: card.memberNumber)
-            CssText(text: staffPrompt, font: CardType.gothamBook(16), lineHeight: 26, color: cream)
+            CssText(text: staffPrompt, font: CardType.gothamBook(16), lineHeight: 26, color: cream, centred: true)
             if offline {
-                CssText(text: "NO CONNECTION · SAVED CARD", font: CardType.gothamBook(12), lineHeight: 16, tracking: 1.2, color: cream.opacity(0.7))
+                CssText(text: "NO CONNECTION · SAVED CARD", font: CardType.gothamBook(12), lineHeight: 16, tracking: 1.2, color: cream.opacity(0.7), centred: true)
             }
             // WalletButtons on iOS: the Apple Wallet badge only, h-10, in an overflow-hidden rounded-lg button.
             if let badge = cardImage("bf-apple-wallet") {
@@ -126,7 +126,7 @@ private struct QrCardBox: View {
             QrModules(qr: QrCode.encode(scanValue), ink: ink)
                 .frame(width: 288, height: 288)
                 .accessibilityLabel("Your member QR code")
-            CssText(text: memberNumber, font: CardType.mono(12), lineHeight: 16, tracking: 2, color: ink.opacity(0.7))
+            CssText(text: memberNumber, font: CardType.mono(12), lineHeight: 16, tracking: 2, color: ink.opacity(0.7), centred: true)
                 .contentShape(Rectangle())
                 .onTapGesture { UIPasteboard.general.string = memberNumber }
                 .padding(.top, 16)

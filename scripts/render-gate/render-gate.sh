@@ -2,7 +2,8 @@
 # RENDER-GATE (healer:4b3d7c53, ONE-UI-COMPOSE-2026-10-23): every natively drawn element must match its React reference
 # pixel for pixel. React is the reference; a failure means the native element moves, never the reference.
 #
-#   scripts/render-gate/render-gate.sh android|ios|all     exit 0 = every element passes; 1 = a divergence (diff PNGs listed)
+#   scripts/render-gate/render-gate.sh android|ios|all     exit 0 = every element passes; 1 = a divergence (diff PNGs listed);
+#                                                        75 = a lane (emulator / Mac) stayed busy: no result, retry
 #
 # Reference: the live site page rendered by Playwright at the device's CSS size and density, every API call answered from
 # fixtures/*.har (a synthetic test member, recorded with reference.mjs --record). Android: Chromium on this box seeing only
@@ -44,12 +45,12 @@ if [ "$which" = android ] || [ "$which" = all ]; then
   # On the shared emulator: a real Android text stack. Robolectric (CardRenderTest, RenderGateScreensTest) skips
   # variable-font axes, so its text is not a phone's: it is a quick local geometry check, never the gate.
   "$HERE/android-native.sh" "$APP" gs.boldthin.balfour.foundersclub gs.boldthin.balfour.foundersclub.RenderGateDeviceTest "$OUT" \
-    || { echo "FAIL android: native render on the emulator failed"; fail=1; }
+    || { rc=$?; [ $rc = 75 ] && { echo "RENDER GATE RETRY (android): the android lane is busy, no result (exit 75)"; exit 75; }; echo "FAIL android: native render on the emulator failed"; fail=1; }
   for row in "${ANDROID[@]}"; do set -- $row; check android "$1" "$2" "$3" "$4" chromium 412 915 3 "${5:-}"; done
 fi
 
 if [ "$which" = ios ] || [ "$which" = all ]; then
-  "$HERE/ios-native.sh" "$APP" bf "$OUT" "$SITE" /dashboard my-id-overlay.har "$TOKEN_KEY" "a[href='/my-id']" || { echo "FAIL ios: native render failed"; fail=1; }
+  "$HERE/ios-native.sh" "$APP" bf "$OUT" "$SITE" /dashboard my-id-overlay.har "$TOKEN_KEY" "a[href='/my-id']" || { rc=$?; [ $rc = 75 ] && { echo "RENDER GATE RETRY (ios): the ios lane is busy, no result (exit 75)"; exit 75; }; echo "FAIL ios: native render failed"; fail=1; }
   for row in "${IOS[@]}"; do set -- $row; check ios "$1" "$2" "$3" "$4" webkit 402 874 3 "${5:-}"; done
 fi
 

@@ -28,6 +28,8 @@ cd ~/$D
 RENDER_GATE_PLAYWRIGHT_FROM=~/render-gate-tools node reference.mjs --site "$SITE" --path "$PAGE" --har "$HAR" \
   --out ~/$D/react.png --engine webkit --w 402 --h 874 --dpr 3 --token-key "$TOKEN_KEY" ${CLICK:+--click $CLICK_Q} || exit 1
 [ -x ~/bin/mac-load-guard ] && { ~/bin/mac-load-guard admit simulator || exit 75; }
+# Delete stale render-gate simulators left by an interrupted run (the local EXIT trap cannot reach them).
+xcrun simctl list devices | sed -n "s/.*render-gate-[a-z]*-[0-9]* (\\([0-9A-F-]*\\)) (Shutdown).*/\\1/p" | xargs -n1 xcrun simctl delete >/dev/null 2>&1
 SIM=\$(xcrun simctl create render-gate-$P-$$ "iPhone 17" com.apple.CoreSimulator.SimRuntime.iOS-27-0) || exit 1
 cd LoyaltyCard
 TEST_RUNNER_CARD_FIXTURE=~/$D/card.json TEST_RUNNER_CARD_RENDER_OUT=~/$D/native.png \

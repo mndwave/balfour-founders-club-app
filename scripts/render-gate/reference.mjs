@@ -4,6 +4,7 @@
 //   --record --token T   capture the HAR from a real (synthetic test) member session instead of replaying it
 // Usage: reference.mjs --site URL --path /qr --har F --out PNG [--engine chromium|webkit] [--w 412 --h 915 --dpr 3] [--click SELECTOR]
 //        [--token T] [--token-key randalls_member_token] [--record] [--wait-ms 2500] [--local-storage JSON]
+//        [--eval JS] [--raster SELECTOR --raster-out PNG]
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -110,6 +111,29 @@ if (args.click) { await page.evaluate(sel => document.querySelector(sel).click()
 await page.evaluate(() => document.fonts.ready)
 await page.waitForTimeout(Number(args['wait-ms'] || 2500))
 await page.screenshot({ path: out, animations: 'disabled', caret: 'hide' })
+// --eval JS: print the JSON of an expression evaluated in the rendered page (e.g. layout positions while fitting a native rule).
+if (args.eval) console.log(JSON.stringify(await page.evaluate(args.eval)))
+// --raster SELECTOR --raster-out PNG: the element alone, as this engine paints it on the page (transparent around it),
+// cut on the device-pixel grid it covers. A native element ships rasters (a logo the page rescales, an SVG badge) as this
+// paint drawn 1:1 at that box, never resampled natively (RENDER-GATE-WEBKIT-RASTERS-2026-10-23, healer:4b3d7c53).
+if (args.raster) {
+  const box = await page.evaluate(sel => {
+    const el = document.querySelector(sel)
+    if (!el) return null
+    const s = document.createElement('style')
+    s.textContent = 'html, body { background: transparent !important } * { visibility: hidden !important }'
+    document.head.appendChild(s)
+    for (const n of [el, ...el.querySelectorAll('*')]) n.style.setProperty('visibility', 'visible', 'important')
+    const r = el.getBoundingClientRect()
+    return { x: r.x, y: r.y, w: r.width, h: r.height }
+  }, args.raster)
+  if (!box) { console.error(`reference.mjs: no element for --raster ${args.raster}`); process.exit(2) }
+  const x0 = Math.floor(box.x * dpr), y0 = Math.floor(box.y * dpr)
+  const x1 = Math.ceil((box.x + box.w) * dpr), y1 = Math.ceil((box.y + box.h) * dpr)
+  await page.screenshot({ path: need('raster-out'), omitBackground: true, animations: 'disabled', caret: 'hide',
+    clip: { x: x0 / dpr, y: y0 / dpr, width: (x1 - x0) / dpr, height: (y1 - y0) / dpr } })
+  console.log(`raster ${args.raster}: css ${box.x},${box.y} ${box.w}x${box.h} -> device px ${x0},${y0} ${x1 - x0}x${y1 - y0}`)
+}
 await ctx.close()
 await browser.close()
 if (record) {
