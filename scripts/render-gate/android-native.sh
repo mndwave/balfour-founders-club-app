@@ -1,10 +1,12 @@
 #!/bin/bash
 # Renders the Android native elements for the render gate on the shared emulator (a real Android text stack: fonts and
 # variable-font axes as on a phone, which Robolectric does not reproduce). Takes the emulator lane lock for the whole run.
-#   android-native.sh <app dir> <application id> <test class> <out dir>
+#   android-native.sh <app dir> <application id> <test class> <out dir> [<site> <refs>]
+# <refs> = "element|path|har|click;..." : the React references, painted by the emulator's own WebView in the same run
+# (WebReference, RENDER-GATE-DEVICE-WEBVIEW-REF-2026-10-24) and pulled as android-<element>-react.png.
 # Exit 75 = the lane stayed busy past RENDER_GATE_LANE_WAIT seconds (default 2700): retry, never a pass.
 set -uo pipefail
-APP="$1"; PKG="$2"; CLASS="$3"; OUT="$4"
+APP="$1"; PKG="$2"; CLASS="$3"; OUT="$4"; SITE="${5:-}"; REFS="${6:-}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 LOCK="$HOME/.cache/seq1-native-e2e.lock"
 ADB="${ANDROID_HOME:-$HOME/android-sdk}/platform-tools/adb"
@@ -31,12 +33,21 @@ A=("$ADB")
 cleanup() { "${A[@]}" uninstall "$PKG" >/dev/null 2>&1; "${A[@]}" uninstall "$PKG.test" >/dev/null 2>&1; "${A[@]}" shell rm -rf "$DEVDIR" >/dev/null 2>&1; }
 # We booted it, we power it down (the lane stops it when the last gate leaves; stop is a no-op while a release holds a lease).
 stopped() { [ "$WAS_UP" = 1 ] || "$LANE/e2e-emulator.sh" stop >/dev/null 2>&1; }
-trap 'cleanup; stopped' EXIT
+# The reference's device: 412x915 dp at density 3 (1236x2745 px, so CSS px = dp in the WebView) in Europe/London, as
+# reference.mjs renders iOS and as the native capture draws. The shared AVD (1080x2400 @420) is put back on exit.
+display() { "${A[@]}" shell wm size reset >/dev/null 2>&1; "${A[@]}" shell wm density reset >/dev/null 2>&1
+  [ -n "${OLD_TZ:-}" ] && "${A[@]}" shell cmd alarm set-timezone "$OLD_TZ" >/dev/null 2>&1; }
+trap 'cleanup; display; stopped' EXIT
 cleanup
+OLD_TZ="$("${A[@]}" shell getprop persist.sys.timezone | tr -d '\r')"
+"${A[@]}" shell wm size 1236x2745 && "${A[@]}" shell wm density 480 && "${A[@]}" shell cmd alarm set-timezone Europe/London \
+  || { echo "android-native: could not set the gate display / time zone"; exit 1; }
+[ "$("${A[@]}" shell getprop persist.sys.timezone | tr -d '\r')" = Europe/London ] || { echo "android-native: time zone not Europe/London"; exit 1; }
 "${A[@]}" install -r "$APK" >/dev/null && "${A[@]}" install -r "$TAPK" >/dev/null || { echo "android-native: install failed"; exit 1; }
 "${A[@]}" shell mkdir -p "$DEVDIR" && "${A[@]}" push "$HERE/fixtures" "$DEVDIR/" >/dev/null && "${A[@]}" shell chmod -R a+rX "$DEVDIR"
 "${A[@]}" logcat -c >/dev/null 2>&1
-"${A[@]}" shell am instrument -w -e renderGateDir "$DEVDIR" -e class "$CLASS" "$PKG.test/androidx.test.runner.AndroidJUnitRunner" \
+REFARGS=(); [ -n "$SITE" ] && REFARGS=(-e renderGateSite "$SITE" -e renderGateRefs "\"$REFS\"")
+"${A[@]}" shell am instrument -w -e renderGateDir "$DEVDIR" "${REFARGS[@]}" -e class "$CLASS" "$PKG.test/androidx.test.runner.AndroidJUnitRunner" \
   > "$OUT/android-instrument.log" 2>&1
 # On failure keep the device log of the run (app, test runner, network policy, crashes) next to the instrument output.
 grep -q '^OK (' "$OUT/android-instrument.log" || {

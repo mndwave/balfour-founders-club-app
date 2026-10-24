@@ -66,7 +66,10 @@ if (!record && !existsSync(har)) { console.error(`reference.mjs: no HAR at ${har
 // Android reference: Chromium sees only the Android system fonts (the ones Robolectric and the device draw with), so
 // generic families (monospace, sans-serif, serif) resolve as on the phone and not to the box's DejaVu.
 const launchEnv = args.engine === 'webkit' ? undefined : { ...process.env, FONTCONFIG_FILE: androidFontconfig() }
-const browser = await engine.launch({ env: launchEnv })
+// Headless Chromium hints glyph metrics by default (whatever fontconfig says), rounding every advance to a whole CSS px:
+// "Reward" in Archivo 600 at 14 px measured 54 against the font's 49.3. A phone's WebView never hints at this density, so
+// the reference turns hinting off; native Compose (fractional advances) then lands within a device px.
+const browser = await engine.launch({ env: launchEnv, args: args.engine === "webkit" ? [] : ["--font-render-hinting=none"] })
 // The app WebView's platform decides platform-specific UI (Apple vs Google Wallet), so the reference claims the same device.
 const UA = args.engine === 'webkit'
   ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'

@@ -68,6 +68,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextMotion
@@ -131,6 +132,36 @@ internal class BfType(art: BalfourArt, private val density: Density) {
 
     private fun px(v: Float) = (v / density.fontScale).sp
 
+    /**
+     * Where the WebView (Blink) puts the baseline in a line box, matched in Compose. The phone's Blink rounds the face's
+     * ascent and descent (hhea, per 1000) to whole device px (blinkAscentDescent) and floors the half-leading; Compose
+     * centres its integer font metrics.
+     * Compose grows the descent by ceil(extra x (1 - topRatio)), so topRatio lands on Blink's baseline, to a device px.
+     * Same rule as randalls-rewards-app ScreenKit.blinkLine (render gate, healer:4b3d7c53).
+     */
+    private fun blinkLine(size: Float, line: Float?, m: Pair<Float, Float>): LineHeightStyle {
+        if (line == null) return LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
+        val (ascent, descent) = m
+        val d = density.density
+        val (ra, rd) = blinkAscentDescent(ascent * size * d, descent * size * d)
+        val baselineDev = ra + kotlin.math.floor((line * d - ra - rd) / 2f)
+        val ai = kotlin.math.ceil(ascent * size * d)
+        val di = kotlin.math.ceil(descent * size * d)
+        val lineDp = kotlin.math.ceil(line * d)
+        val extra = lineDp - ai - di
+        if (extra <= 0f) return LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
+        val growDescent = lineDp - di - baselineDev
+        return LineHeightStyle(LineHeightStyle.Alignment((1f - (growDescent - 0.5f) / extra).coerceIn(0f, 1f)), LineHeightStyle.Trim.None)
+    }
+
+    /** hhea ascent / descent per 1000 of the face a family draws with at a weight (gotham_book / gotham_bold differ). */
+    private fun metrics(family: FontFamily, weight: Int): Pair<Float, Float> = when (family) {
+        sansFamily -> if (weight >= 500) 0.960f to 0.240f else 0.800f to 0.200f
+        displayFamily -> 0.885f to 0.264f
+        archivoFamily -> 0.878f to 0.210f
+        else -> 1.050f to 0.350f
+    }
+
     private fun base(family: FontFamily, size: Float, line: Float?, color: Color, weight: Int, tracking: Float, align: TextAlign, italic: Boolean = false) = TextStyle(
         color = color,
         fontFamily = family,
@@ -140,11 +171,13 @@ internal class BfType(art: BalfourArt, private val density: Density) {
         lineHeight = if (line != null) px(line) else androidx.compose.ui.unit.TextUnit.Unspecified,
         letterSpacing = px(tracking),
         textAlign = align,
-        lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
+        lineHeightStyle = blinkLine(size, line, metrics(family, weight)),
         platformStyle = PlatformTextStyle(includeFontPadding = false),
         // Fractional glyph advances, as the WebView draws them (TextMotion.Static rounds each advance: a device line
         // came out ~0.6 px per character narrower than the page, randalls-rewards-app 619a030).
         textMotion = TextMotion.Animated,
+        // CSS wraps greedily (first fit); Compose defaults to an optimal-fit paragraph and moved "(Mon-Thu)" a line down.
+        lineBreak = LineBreak.Simple,
     )
 
     /** Tailwind text-xs = 12/16, text-sm = 14/20, text-base = 16/24: pass the CSS size and line height. */
@@ -237,11 +270,11 @@ fun BalfourHistory(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    BasicText(
+                    CssText(
                         copy.get("history.title", "Your History"),
                         style = type.display(32f, 38.4f, BfColour.Forest, tracking = 2.72f),
                     )
-                    BasicText(
+                    CssText(
                         copy.get("history.subtitle", "Everything you've used and every receipt, in one place."),
                         style = type.sans(16f, 26f, BfColour.Ink),
                     )
@@ -251,11 +284,11 @@ fun BalfourHistory(
                     HistoryFilter.values().forEach { FilterPill(it, it == state.filter, type) { onFilter(it) } }
                 }
                 when {
-                    groups == null -> BasicText(
+                    groups == null -> CssText(
                         copy.get("history.loading", "Loading your history…"),
                         style = type.sans(14f, 20f, BfColour.MutedInk),
                     )
-                    groups.isEmpty() -> BasicText(
+                    groups.isEmpty() -> CssText(
                         copy.get("history.empty", "Nothing here yet — your visits and receipts will appear as soon as you use a benefit."),
                         style = type.sans(14f, 20f, BfColour.MutedInk),
                     )
@@ -358,7 +391,7 @@ private fun Avatar(initials: String, pair: Int, photo: androidx.compose.ui.graph
         if (photo != null) {
             androidx.compose.foundation.Image(photo, null, Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
         } else {
-            BasicText(
+            CssText(
                 initials,
                 style = type.display(21f, 21f, fg).copy(textAlign = TextAlign.Center),
                 modifier = Modifier.padding(top = 0.84.dp),
@@ -402,11 +435,11 @@ private fun ReceiptPromptCard(stage: BfReceiptPrompt, type: BfType, onTurnOn: ()
                 }
             }
             if (stage == BfReceiptPrompt.SAVED) {
-                BasicText("Receipts turned on — manage anytime in Account.", style = type.sans(14f, 20f, BfColour.Cream), modifier = Modifier.weight(1f))
+                CssText("Receipts turned on — manage anytime in Account.", style = type.sans(14f, 20f, BfColour.Cream), modifier = Modifier.weight(1f))
             } else {
                 Column(Modifier.weight(1f).wrapContentHeight(Alignment.CenterVertically, unbounded = true)) {
-                    BasicText("Get email receipts", style = type.sans(14f, 20f, BfColour.Cream, weight = 500))
-                    BasicText("Turn on to get a receipt after every visit.", style = type.sans(12f, 16f, BfColour.Cream.copy(alpha = 0.60f)), modifier = Modifier.padding(top = 2.dp))
+                    CssText("Get email receipts", style = type.sans(14f, 20f, BfColour.Cream, weight = 500))
+                    CssText("Turn on to get a receipt after every visit.", style = type.sans(12f, 16f, BfColour.Cream.copy(alpha = 0.60f)), modifier = Modifier.padding(top = 2.dp))
                 }
                 Box(
                     Modifier
@@ -418,7 +451,7 @@ private fun ReceiptPromptCard(stage: BfReceiptPrompt, type: BfType, onTurnOn: ()
                         .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    BasicText("Turn on", style = type.sans(14f, 20f, BfColour.Cream, weight = 500, align = TextAlign.Center))
+                    CssText("Turn on", style = type.sans(14f, 20f, BfColour.Cream, weight = 500, align = TextAlign.Center))
                 }
             }
         }
@@ -438,7 +471,7 @@ private fun FilterPill(filter: HistoryFilter, active: Boolean, type: BfType, onC
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(
+        CssText(
             filter.label,
             // CSS letter-spacing trails the last glyph, so the page pill is text + 32 + 1.75 wide; Compose only counts part of it:
             // device frame diff showed each pill 1.2 css px narrower without this, 0.7 wider with the full 1.75 (healer:fae57e3f).
@@ -467,8 +500,8 @@ private fun MonthSection(
         },
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            BasicText(group.label, style = type.sans(16f, 24f, BfColour.Forest, weight = 500))
-            BasicText(group.netLabel, style = type.sans(16f, 24f, if (group.net >= 0) BfColour.CopperInk else BfColour.RoseInk, weight = 500))
+            CssText(group.label, style = type.sans(16f, 24f, BfColour.Forest, weight = 500))
+            CssText(group.netLabel, style = type.sans(16f, 24f, if (group.net >= 0) BfColour.CopperInk else BfColour.RoseInk, weight = 500))
         }
         group.rows.forEachIndexed { i, row ->
             Column(
@@ -515,12 +548,12 @@ private fun TransactionRow(
         ) {
             Box(Modifier.size(8.dp).background(dot, CircleShape))
             Column(Modifier.weight(1f)) {
-                BasicText(row.venue, style = type.sans(16f, 24f, BfColour.Forest, weight = 500))
-                BasicText(row.description, style = type.sans(14f, 20f, BfColour.MutedInk))
-                BasicText(row.dateLabel, style = type.sans(14f, 20f, BfColour.MutedInk))
+                CssText(row.venue, style = type.sans(16f, 24f, BfColour.Forest, weight = 500))
+                CssText(row.description, style = type.sans(14f, 20f, BfColour.MutedInk))
+                CssText(row.dateLabel, style = type.sans(14f, 20f, BfColour.MutedInk))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                BasicText(row.amount, style = type.sans(16f, 24f, amount, weight = 500))
+                CssText(row.amount, style = type.sans(16f, 24f, amount, weight = 500))
                 if (orderId != null) {
                     Canvas(Modifier.size(16.dp)) {
                         val s = size.width / 24f
@@ -562,39 +595,39 @@ private fun ReceiptBody(
 ) {
     val small = type.sans(12f, 16f, BfColour.MutedInk)
     when (rs) {
-        BfReceiptState.Loading -> BasicText("Loading…", style = small, modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp))
+        BfReceiptState.Loading -> CssText("Loading…", style = small, modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp))
         is BfReceiptState.Loaded -> {
             val r = rs.receipt
             if (!r.active) {
-                BasicText("Receipts are coming soon.", style = small, modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp))
+                CssText("Receipts are coming soon.", style = small, modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp))
             } else if (r.items.isNotEmpty()) {
                 Column {
                     r.items.forEach { item ->
                         when (item.itemType) {
                             "modifier" -> Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.Top) {
-                                BasicText("↳", style = small, modifier = Modifier.padding(end = 8.dp, top = 2.dp))
-                                BasicText(item.name, style = small, modifier = Modifier.weight(1f))
+                                CssText("↳", style = small, modifier = Modifier.padding(end = 8.dp, top = 2.dp))
+                                CssText(item.name, style = small, modifier = Modifier.weight(1f))
                             }
                             "service_charge" -> Row(Modifier.fillMaxWidth().bottomRule().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                BasicText("Service charge", style = type.sans(12f, 16f, BfColour.MutedInk, weight = 500), modifier = Modifier.weight(1f))
-                                BasicText("£${item.priceGbp}", style = type.sans(12f, 16f, BfColour.MutedInk, weight = 500))
+                                CssText("Service charge", style = type.sans(12f, 16f, BfColour.MutedInk, weight = 500), modifier = Modifier.weight(1f))
+                                CssText("£${item.priceGbp}", style = type.sans(12f, 16f, BfColour.MutedInk, weight = 500))
                             }
                             "excluded" -> Row(Modifier.fillMaxWidth().bottomRule().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                                    BasicText(qty(item) + item.name, style = type.sans(12f, 16f, BfColour.Ink), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    BasicText("Not eligible for rewards", style = small, modifier = Modifier.padding(top = 2.dp))
+                                    CssText(qty(item) + item.name, style = type.sans(12f, 16f, BfColour.Ink), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    CssText("Not eligible for rewards", style = small, modifier = Modifier.padding(top = 2.dp))
                                 }
-                                BasicText("£${item.priceGbp}", style = type.sans(12f, 16f, BfColour.Ink, weight = 500))
+                                CssText("£${item.priceGbp}", style = type.sans(12f, 16f, BfColour.Ink, weight = 500))
                             }
                             else -> Row(Modifier.fillMaxWidth().bottomRule().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                BasicText(qty(item) + item.name, style = type.sans(12f, 16f, BfColour.Ink), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 12.dp))
-                                BasicText("£${item.priceGbp}", style = type.sans(12f, 16f, BfColour.Ink, weight = 500))
+                                CssText(qty(item) + item.name, style = type.sans(12f, 16f, BfColour.Ink), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 12.dp))
+                                CssText("£${item.priceGbp}", style = type.sans(12f, 16f, BfColour.Ink, weight = 500))
                             }
                         }
                     }
                     Row(Modifier.fillMaxWidth().topRule().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         if (r.source == "pos") StarRating(orderId, r.memberRating, art, type, onRate) else Spacer(Modifier.size(0.dp))
-                        BasicText(
+                        CssText(
                             "Query this transaction",
                             style = type.sans(12f, 16f, BfColour.RoseInk),
                             softWrap = false,
@@ -602,7 +635,7 @@ private fun ReceiptBody(
                         )
                     }
                     r.receiptCode?.let {
-                        BasicText("REF $it", style = type.sans(12f, 16f, BfColour.MutedInk, tracking = 0.3f), modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp))
+                        CssText("REF $it", style = type.sans(12f, 16f, BfColour.MutedInk, tracking = 0.3f), modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp))
                     }
                 }
             } else {
@@ -616,8 +649,8 @@ private fun ReceiptBody(
 @Composable
 private fun NoReceipt(orderId: String, type: BfType, small: TextStyle, onQuery: (String) -> Unit) {
     Column {
-        BasicText("No receipt details available.", style = small, modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp))
-        BasicText(
+        CssText("No receipt details available.", style = small, modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp))
+        CssText(
             "Query this transaction",
             style = type.sans(12f, 16f, BfColour.RoseInk),
             modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
@@ -635,8 +668,8 @@ private fun StarRating(orderId: String, initial: Int?, art: BalfourArt, type: Bf
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         // The label box is as wide as the longest of its two strings, both centred in it.
         Box(contentAlignment = Alignment.Center) {
-            BasicText("Rate this visit", style = type.archivo(12f, 16f, if (ack) Color.Transparent else BfColour.MutedInk, tracking = 0.3f), maxLines = 1)
-            BasicText("Thank you!", style = type.archivo(12f, 16f, if (ack) BfColour.MutedInk else Color.Transparent, tracking = 0.3f), maxLines = 1)
+            CssText("Rate this visit", style = type.archivo(12f, 16f, if (ack) Color.Transparent else BfColour.MutedInk, tracking = 0.3f), maxLines = 1)
+            CssText("Thank you!", style = type.archivo(12f, 16f, if (ack) BfColour.MutedInk else Color.Transparent, tracking = 0.3f), maxLines = 1)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
             for (n in 1..5) {

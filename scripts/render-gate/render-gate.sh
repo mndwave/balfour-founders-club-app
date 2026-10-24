@@ -6,8 +6,9 @@
 #                                                        75 = a lane (emulator / Mac) stayed busy: no result, retry
 #
 # Reference: the live site page rendered by Playwright at the device's CSS size and density, every API call answered from
-# fixtures/*.har (a synthetic test member, recorded with reference.mjs --record). Android: Chromium on this box seeing only
-# Android's system fonts, unhinted, as a phone draws them. iOS: WebKit on the Mac, for Apple's fonts and text stack.
+# fixtures/*.har (a synthetic test member, recorded with reference.mjs --record). Android: the emulator's own WebView, the one
+# that draws the page in the app (WebReference, same run as the native capture; a Linux Chromium reference left ~1% of
+# glyph anti-aliasing apart, RENDER-GATE-DEVICE-WEBVIEW-REF-2026-10-24). iOS: WebKit on the Mac, for Apple's fonts and text stack.
 # Native: the same composable / SwiftUI view, fed the same recorded data, rendered at the same size and density
 # (Android: RenderGateDeviceTest on the shared emulator, android-native.sh; iOS: the LoyaltyCard package tests on an
 # iPhone 17 simulator over the macbook path, ios-native.sh).
@@ -33,8 +34,9 @@ IOS=(
 
 check() { # platform element path har native engine w h dpr [click]
   local ref="$OUT/$1-$2-react.png"
-  # The iOS reference is rendered on the Mac by ios-native.sh; everything else here.
-  [ "$6" = webkit ] && [ -s "$ref" ] || node "$HERE/reference.mjs" --site "$SITE" --path "$3" --har "$HERE/fixtures/$4" --out "$ref" --engine "$6" \
+  # The Android reference is painted on the emulator (android-native.sh), the iOS one on the Mac (ios-native.sh).
+  [ "$6" = device ] && [ ! -s "$ref" ] && { echo "FAIL $1 $2: no device reference ($ref)"; fail=1; return; }
+  [ "$6" = device ] || { [ "$6" = webkit ] && [ -s "$ref" ]; } || node "$HERE/reference.mjs" --site "$SITE" --path "$3" --har "$HERE/fixtures/$4" --out "$ref" --engine "$6" \
     --w "$7" --h "$8" --dpr "$9" --token-key "$TOKEN_KEY" ${10:+--click "${10}"} >/dev/null || { echo "FAIL $1 $2: reference render failed"; fail=1; return; }
   [ -s "$OUT/$5" ] || { echo "FAIL $1 $2: no native render ($OUT/$5)"; fail=1; return; }
   node "$HERE/diff.mjs" --ref "$ref" --native "$OUT/$5" --diff "$OUT/$1-$2-diff.png" --max-ratio "$MAX" --label "$1 $2" \
@@ -42,11 +44,12 @@ check() { # platform element path har native engine w h dpr [click]
 }
 
 if [ "$which" = android ] || [ "$which" = all ]; then
-  # On the shared emulator: a real Android text stack. Robolectric (CardRenderTest, RenderGateScreensTest) skips
-  # variable-font axes, so its text is not a phone's: it is a quick local geometry check, never the gate.
-  "$HERE/android-native.sh" "$APP" gs.boldthin.balfour.foundersclub gs.boldthin.balfour.foundersclub.RenderGateDeviceTest "$OUT" \
+  # On the shared emulator: the native elements and their references, both drawn by the device (Robolectric draws the
+  # natives identically and is the fast local loop, but the emulator run is the gate).
+  refs=""; for row in "${ANDROID[@]}"; do set -- $row; refs+="$1|$2|$3|${5:-};"; done
+  "$HERE/android-native.sh" "$APP" gs.boldthin.balfour.foundersclub gs.boldthin.balfour.foundersclub.RenderGateDeviceTest "$OUT" "$SITE" "$refs" \
     || { rc=$?; [ $rc = 75 ] && { echo "RENDER GATE RETRY (android): the android lane is busy, no result (exit 75)"; exit 75; }; echo "FAIL android: native render on the emulator failed"; fail=1; }
-  for row in "${ANDROID[@]}"; do set -- $row; check android "$1" "$2" "$3" "$4" chromium 412 915 3 "${5:-}"; done
+  for row in "${ANDROID[@]}"; do set -- $row; check android "$1" "$2" "$3" "$4" device 412 915 3 "${5:-}"; done
 fi
 
 if [ "$which" = ios ] || [ "$which" = all ]; then

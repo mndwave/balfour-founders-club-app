@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -207,7 +208,19 @@ private fun QrCardBox(qr: QrMatrix, memberNumber: String, type: CardType, onCopy
  */
 @Composable
 private fun TrackedText(text: String, style: TextStyle, trackingCssPx: Float) {
-    BasicText(text, style = style, modifier = Modifier.padding(end = trackingCssPx.dp))
+    // Android letter spacing puts half a gap before the first glyph and drops the trailing half, so the ink sat a quarter gap
+    // right of the page once centred (render gate 2026-10-24: +0.9 device px at 1.2 css, +2 at 2.4). Draw it half a gap left
+    // and make the box what CSS makes it, the ink plus one gap per glyph.
+    BasicText(
+        text,
+        style = style,
+        modifier = Modifier
+            .layout { m, c ->
+                val p = m.measure(c)
+                val half = trackingCssPx.dp.toPx() / 2f
+                layout((p.width + half).roundToInt(), p.height) { p.placeWithLayer(0, 0) { translationX = -half } }
+            },
+    )
 }
 
 @Composable

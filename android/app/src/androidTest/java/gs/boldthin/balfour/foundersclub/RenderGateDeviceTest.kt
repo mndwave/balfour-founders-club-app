@@ -20,6 +20,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import gs.boldthin.loyalty.card.BalfourMemberCard
 import gs.boldthin.loyalty.card.CardSnapshot
 import gs.boldthin.loyalty.rendergate.HarServer
+import gs.boldthin.loyalty.rendergate.WebReference
 import gs.boldthin.loyalty.screens.BalfourHistoryRoute
 import gs.boldthin.loyalty.screens.BalfourScreenContext
 import gs.boldthin.loyalty.screens.PortalClient
@@ -87,6 +88,21 @@ class RenderGateDeviceTest {
         }
     }
 
+    /**
+     * The React references, painted by this device's WebView (WebReference): one per element the gate passes as
+     * -e renderGateRefs "element|path|har|click;..." with -e renderGateSite, written as android-<element>-react.png.
+     */
+    @Test fun rendersReferences() {
+        assumeTrue(dir != null)
+        val args = InstrumentationRegistry.getArguments()
+        val site = args.getString("renderGateSite") ?: return
+        for (row in args.getString("renderGateRefs").orEmpty().split(';').filter { it.isNotBlank() }) {
+            val (element, path, har, click) = (row.split('|') + listOf("", "", "", "")).take(4)
+            WebReference(compose.activity, File(dir, "fixtures/$har"), TOKEN_KEY)
+                .render(site + path, File(out, "android-$element-react.png"), W, H, click.ifBlank { null })
+        }
+    }
+
     @Test fun rendersHistory() {
         assumeTrue(dir != null)
         HarServer(
@@ -117,5 +133,6 @@ class RenderGateDeviceTest {
     private companion object {
         const val W = 1236
         const val H = 2745
+        const val TOKEN_KEY = "balfour_member_token"
     }
 }
