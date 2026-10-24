@@ -108,11 +108,28 @@ class WebReference(private val activity: Activity, har: File, private val tokenK
             // The element appears once the page has its data (hydration + recorded API), not at readyState complete.
             val sel = JSONObject.quote(click)
             waitFor(30_000, "element for click $click") { eval(web, "!!document.querySelector($sel)") == "true" }
+            // GATE-HARDEN (healer:4b3d7c53): click only once the page is idle (hydrated), as reference.mjs does after
+            // networkidle. A click before hydration is a plain link: Balfour's My ID link then loaded the standalone /my-id
+            // page (header absolute, content 44 css px higher) instead of the overlay over the dashboard the app shows.
+            waitFor(30_000, "network idle before click") { idle(web) }
+            // React marks a hydrated node with its props (__reactProps$...): the link's click handler is live.
+            waitFor(30_000, "hydrated element for click $click") {
+                eval(web, "Object.keys(document.querySelector($sel)).some(function (k) { return k.indexOf('__reactProps') === 0 })") == "true"
+            }
+            SystemClock.sleep(1000)
             eval(web, "document.querySelector($sel).click()")
         }
-        // Network idle (as networkidle: no recorded-API call for 500 ms), fonts settled, then the reference's fixed settle time.
-        waitFor(30_000, "network idle") { SystemClock.uptimeMillis() - lastRequest.get() > 500 && eval(web, "document.fonts.status") == "\"loaded\"" }
+        // Network idle (as networkidle: no recorded-API call for 500 ms), fonts settled, every image loaded (GATE-HARDEN: a
+        // reference drawn while the Randalls tier hexagon and wallet badge were still loading failed the gate at 2.3%), then
+        // the reference's fixed settle time.
+        waitFor(30_000, "network idle") { idle(web) }
+        // Images in the viewport only: a lazy image below the fold never loads (Balfour's dashboard has some).
+        waitFor(30_000, "images in view loaded") { eval(web, IMAGES_IN_VIEW_LOADED) == "true" }
         SystemClock.sleep(settleMs)
+        // GATE-HARDEN (healer:4b3d7c53): the painted DOM and viewport facts beside the PNG (<out>.html, <out>.json), so a
+        // reference that differs from a Chromium render or from the bundled card copy can be diagnosed from the device's own state.
+        File(out.path.removeSuffix(".png") + ".html").writeText(unquote(eval(web, "document.documentElement.outerHTML")))
+        File(out.path.removeSuffix(".png") + ".json").writeText(unquote(eval(web, FACTS)))
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         inst.runOnMainSync { web.draw(Canvas(bmp)) }
         out.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -127,6 +144,8 @@ class WebReference(private val activity: Activity, har: File, private val tokenK
           new MutationObserver(tag).observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
         })();
     """.trimIndent()
+
+    private fun idle(web: WebView) = SystemClock.uptimeMillis() - lastRequest.get() > 500 && eval(web, "document.fonts.status") == "\"loaded\""
 
     private fun eval(web: WebView, js: String): String? {
         var result: String? = null
@@ -144,8 +163,20 @@ class WebReference(private val activity: Activity, har: File, private val tokenK
         }
     }
 
-    private companion object {
+    companion object {
+        private const val IMAGES_IN_VIEW_LOADED = """Array.prototype.every.call(document.images, function (i) {
+            var r = i.getBoundingClientRect();
+            return i.complete || r.width === 0 || r.height === 0 || r.bottom <= 0 || r.right <= 0 || r.top >= innerHeight || r.left >= innerWidth })"""
+
+        /** evaluateJavascript returns a JSON string literal; decode it (null -> ""). */
+        fun unquote(v: String?): String = if (v == null || v == "null") "" else org.json.JSONArray("[$v]").getString(0)
+
+        // Viewport, insets as CSS sees them, motion preference, and every image's load state.
+        const val FACTS = """JSON.stringify({w: innerWidth, h: innerHeight, dpr: devicePixelRatio, vv: visualViewport && visualViewport.height,
+            sat: getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top'),
+            reduce: matchMedia('(prefers-reduced-motion: reduce)').matches, ua: navigator.userAgent,
+            images: Array.prototype.map.call(document.images, function (i) { return [i.currentSrc || i.src, i.complete, i.naturalWidth, getComputedStyle(i).opacity] })})"""
         // As reference.mjs: the API host and same-origin /api/* are data (answered from the HAR); the rest is the live site.
-        val DATA = Regex("^https://api\\.boldthin\\.gs/|^https://[^/]+/api/")
+        private val DATA = Regex("^https://api\\.boldthin\\.gs/|^https://[^/]+/api/")
     }
 }

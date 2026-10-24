@@ -73,6 +73,14 @@ class RenderGateDeviceTest {
             SystemClock.sleep(100)
         }
         SystemClock.sleep(1500)
+        // The same DOM and viewport facts WebReference writes for the reference (GATE-HARDEN, healer:4b3d7c53).
+        for ((ext, js) in listOf("html" to "document.documentElement.outerHTML", "json" to WebReference.FACTS)) {
+            val done = java.util.concurrent.CountDownLatch(1)
+            var v: String? = null
+            inst.runOnMainSync { page.evaluateJavascript(js) { v = it; done.countDown() } }
+            done.await(10, java.util.concurrent.TimeUnit.SECONDS)
+            File(out(a), "native-card.$ext").writeText(WebReference.unquote(v))
+        }
         val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
         inst.runOnMainSync { page.draw(Canvas(bmp)) }
         File(out(a), "native-card.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
