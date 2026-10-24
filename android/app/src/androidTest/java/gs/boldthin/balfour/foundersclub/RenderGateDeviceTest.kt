@@ -80,6 +80,48 @@ class RenderGateDeviceTest {
     }
 
     /**
+     * The card page's controls reach the app (LoyaltyCardPage): close, wallet and copy call back with the scan value and the
+     * page shows the page's own "Copied" state; a refreshed snapshot refills the page in place.
+     */
+    @Test fun cardControlsReachTheApp() {
+        assumeTrue(dir != null)
+        val a = activity()
+        val inst = InstrumentationRegistry.getInstrumentation()
+        val calls = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val card = CardSnapshot("tag", "M1", "P", "TOKEN1", "Ann Example", "Member", 0.0, 0, 0)
+        lateinit var page: CardPage
+        inst.runOnMainSync {
+            page = CardPage(a, onClose = { calls += "close" }, onWallet = { calls += "wallet" }, onCopy = { calls += "copy:$it" }, background = BalfourCard.ART.pageBackground)
+            a.setContentView(page, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            page.show(card, offline = false)
+        }
+        waitUntil("card page painted") { page.ready }
+        fun js(code: String): String {
+            val done = java.util.concurrent.CountDownLatch(1)
+            var out = ""
+            inst.runOnMainSync { page.evaluateJavascript(code) { out = it; done.countDown() } }
+            done.await(10, java.util.concurrent.TimeUnit.SECONDS)
+            return out
+        }
+        org.junit.Assert.assertEquals("\"PTOKEN1\"", js("document.querySelector('[data-card=number]').textContent"))
+        for (slot in listOf("close", "wallet", "number")) js("document.querySelector('[data-card=$slot]').click()")
+        waitUntil("three callbacks, got $calls") { calls.size == 3 }
+        org.junit.Assert.assertEquals(setOf("close", "wallet", "copy:PTOKEN1"), calls.toSet())
+        org.junit.Assert.assertEquals("\"Copied ✓\"", js("document.querySelector('[data-card=number]').textContent"))
+        inst.runOnMainSync { page.show(card.copy(qrToken = "TOKEN2"), offline = false) }
+        waitUntil("refill after the copied state") { js("document.querySelector('[data-card=number]').textContent") == "\"PTOKEN2\"" }
+        inst.runOnMainSync { page.destroy() }
+    }
+
+    private fun waitUntil(what: String, ok: () -> Boolean) {
+        val end = SystemClock.uptimeMillis() + 15_000
+        while (!ok()) {
+            if (SystemClock.uptimeMillis() > end) throw AssertionError("card page: no $what after 15 s")
+            SystemClock.sleep(100)
+        }
+    }
+
+    /**
      * The React references, painted by this device's WebView (WebReference): one per element the gate passes as
      * -e renderGateRefs "element|path|har|click;..." with -e renderGateSite, written as android-<element>-react.png.
      */
