@@ -67,7 +67,12 @@ fun BalfourHistoryRoute(ctx: BalfourScreenContext, art: BalfourArt) {
             }
         }
         when (val r = ctx.get("/balfour/loyalty/portal/transactions?limit=100&offset=0")) {
-            is PortalClient.Result.Ok -> state = state.copy(cash = BalfourHistoryModel.parseTransactions(r.body) ?: emptyList())
+            // Parse first, then copy: copying first held a snapshot of state across the parse, and a /me result landing
+            // meanwhile (initials, receipt prompt) was written back over with the stale copy.
+            is PortalClient.Result.Ok -> {
+                val cash = BalfourHistoryModel.parseTransactions(r.body) ?: emptyList()
+                state = state.copy(cash = cash)
+            }
             PortalClient.Result.SignedOut -> ctx.onSignedOut()
             // The web page shows its empty state when the fetch fails.
             else -> state = state.copy(cash = emptyList())

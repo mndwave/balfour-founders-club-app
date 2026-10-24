@@ -28,6 +28,9 @@ import org.robolectric.annotation.GraphicsMode
 class RenderGateScreensTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
+    // The reference renders in Europe/London (reference.mjs timezoneId), as RenderGateDeviceTest does on the device.
+    init { java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Europe/London")) }
+
     @Test fun rendersHistory() {
         val dir = System.getenv("RENDER_GATE_DIR")?.let(::File)
         assumeTrue(dir != null)
