@@ -47,8 +47,9 @@ copies identical apart from `render-gate.sh`'s site, token key and element table
 - **Centred text is drawn as WebKit draws it** (`CssText(..., centred: true)` -> `CssCentredLine`): a SwiftUI `Text`
   draws from a pixel-snapped origin, WebKit from the float one, and both snap each glyph to a whole device pixel, so a
   fraction apart moves glyphs a pixel. Start = (width - line width rounded up to 1/64) / 2, rounded down to 1/64;
-  baseline = half-leading baseline floored to a device pixel; no subpixel glyph positioning. SwiftUI layout itself is
-  float and matches WebKit's boxes (traced). `reference.mjs --eval <js>` prints page layout values for fitting a rule.
+  baseline = half-leading baseline rounded to a device pixel, with WebKit's own ui-monospace metrics (`WebKitLineMetrics`);
+  no subpixel glyph positioning. SwiftUI layout is float and matches WebKit's boxes (traced), but a Canvas layer is
+  snapped to the nearest device pixel, so the drawing undoes that snap. `reference.mjs --eval <js>` prints page layout values for fitting a rule.
 - **Diff:** `diff.mjs`, full colour, per pixel, channel delta > 16/255, fail above 0.2% of pixels, diff PNG on failure.
   No baselines, no recorded gaps. Never loosen it to pass a real divergence; a harness-caused failure is fixed in the harness.
 - **Fixtures:** recorded from a synthetic member (`create_test_loyalty_session` with `tenant=balfour`; PATCH

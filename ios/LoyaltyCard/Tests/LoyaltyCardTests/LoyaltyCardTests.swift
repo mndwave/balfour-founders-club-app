@@ -86,3 +86,13 @@ final class CardSnapshotTests: XCTestCase {
         XCTAssertNil(store.load())
     }
 }
+
+final class CardTypeTests: XCTestCase {
+    /// The member number lays out with WebKit's ui-monospace metrics, not CoreText's (RENDER-GATE-TEXT-ORIGIN-2026-10-24):
+    /// if the system monospaced font's name ever stops matching, the number silently moves back up.
+    func testMonospacedLinesUseWebKitMetrics() {
+        let m = WebKitLineMetrics.of(CardType.mono(12))
+        XCTAssertEqual(m.ascent, 11.598, accuracy: 0.001, "\(CardType.mono(12).fontName) \(CTFontCopyFamilyName(CardType.mono(12)) as String)")
+        XCTAssertEqual(m.ascent + m.descent, 14.133, accuracy: 0.001)
+    }
+}
