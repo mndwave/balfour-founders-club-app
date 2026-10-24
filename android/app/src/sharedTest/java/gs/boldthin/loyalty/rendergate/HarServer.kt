@@ -18,7 +18,9 @@ import org.json.JSONObject
 class HarServer(har: File, private val aliases: Map<String, String> = emptyMap(), extra: Map<String, String> = emptyMap()) : AutoCloseable {
     private val bodies = HashMap<String, String>()
     val served: MutableSet<String> = ConcurrentHashMap.newKeySet()
-    private val socket = ServerSocket(0, 16, InetAddress.getLoopbackAddress())
+    // IPv4 127.0.0.1 explicitly, the host in base and in the debug cleartext rule: Android's getLoopbackAddress() is ::1,
+    // so on a device the server listened on ::1 while the client dialled 127.0.0.1 (refused; the JVM returns 127.0.0.1).
+    private val socket = ServerSocket(0, 16, InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)))
 
     init {
         val entries = JSONObject(har.readText()).getJSONObject("log").getJSONArray("entries")
