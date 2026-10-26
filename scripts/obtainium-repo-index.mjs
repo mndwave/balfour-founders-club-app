@@ -9,7 +9,7 @@ const now = Date.now(), loc = (s) => ({ "en-GB": s });
 const index = {
   repo: { name: loc(name), description: loc(`${name} builds from media.seq1.net`), address: baseUrl, icon: {}, timestamp: now },
   packages: { [pkg]: {
-    metadata: { name: loc(name), summary: loc(name), authorName: "SEQ1", added: now, lastUpdated: now },
+    metadata: { name: loc(name), summary: loc(name), authorName: "BoldThings", added: now, lastUpdated: now },
     versions: { [sha256]: { added: now, file: { name: "/" + apkName, sha256, size: statSync(apkFile).size },
       manifest: { versionName, versionCode: Number(versionCode) } } },
   } },
