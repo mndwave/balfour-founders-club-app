@@ -15,12 +15,11 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.ComposeView
 import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
-
-/** What the card overlay needs of the brand: the colour under the card page before its first frame. */
-data class CardArt(val pageBackground: Int)
 
 /**
  * Puts the member card over the activity, from the device snapshot, with no network wait, then freshens it from
@@ -44,6 +43,9 @@ class MemberCardOverlay(
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var host: FrameLayout? = null
     private var savedBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+    private val splash = mutableStateOf(false)
+    /** The splash plays once per process; a card shown again later goes straight to the card. */
+    private var splashPlayed = false
     private val back = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = close()
     }
@@ -60,13 +62,20 @@ class MemberCardOverlay(
         val saved = store.load() ?: return false
         card = saved
         offline = !hasNetwork()
+        splash.value = !splashPlayed
+        splashPlayed = true
         val web = CardPage(activity, onClose = ::close, onWallet = ::addToGoogleWallet, onCopy = ::copy, background = art.pageBackground)
         web.show(saved, offline)
         page = web
+        // Cold launch only: the logo holds on cream, then one fade into the card.
+        val compose = ComposeView(activity).apply {
+            setContent { if (splash.value) CardLaunchSplash(art) { splash.value = false } }
+        }
         // Clickable host: touches that the card does not use never reach the WebView underneath.
         host = FrameLayout(activity).apply {
             isClickable = true
             addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            addView(compose, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
         activity.addContentView(host, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         // Last callback added is asked first; Capacitor's WebView-back callback is added when the bridge loads, after this one.

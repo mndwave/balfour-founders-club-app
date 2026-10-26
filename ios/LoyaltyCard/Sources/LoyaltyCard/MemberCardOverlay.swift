@@ -6,9 +6,11 @@ import UIKit
 final class CardModel: ObservableObject {
     @Published var card: CardSnapshot
     @Published var offline = false
+    @Published var splash: Bool
 
-    init(card: CardSnapshot) {
+    init(card: CardSnapshot, splash: Bool) {
         self.card = card
+        self.splash = splash
     }
 }
 
@@ -18,7 +20,11 @@ private struct OverlayRoot: View {
     let onWallet: () -> Void
 
     var body: some View {
-        BalfourMemberCard(card: model.card, offline: model.offline, onClose: onClose, onAddToAppleWallet: onWallet)
+        ZStack {
+            BalfourMemberCard(card: model.card, offline: model.offline, onClose: onClose, onAddToAppleWallet: onWallet)
+            // Cold launch only: the logo holds on cream, then one fade into the card.
+            if model.splash { CardLaunchSplash { model.splash = false } }
+        }
     }
 }
 
@@ -38,6 +44,9 @@ public final class MemberCardOverlay {
     private var lastPathSatisfied: Bool?
     private var savedBrightness: CGFloat?
 
+    /// The splash plays once per process; a card shown again later goes straight to the card.
+    private static var splashPlayed = false
+
     public init(host: UIViewController, brand: CardBrand, onClosed: @escaping () -> Void) {
         self.host = host
         self.brand = brand
@@ -53,7 +62,8 @@ public final class MemberCardOverlay {
     public func show() -> Bool {
         if hosting != nil { return true }
         guard let host = host, let saved = store.load() else { return false }
-        let model = CardModel(card: saved)
+        let model = CardModel(card: saved, splash: !MemberCardOverlay.splashPlayed)
+        MemberCardOverlay.splashPlayed = true
         self.model = model
         let root = OverlayRoot(model: model, onClose: { [weak self] in self?.close() }, onWallet: { [weak self] in self?.addToAppleWallet() })
         let vc = UIHostingController(rootView: root)
