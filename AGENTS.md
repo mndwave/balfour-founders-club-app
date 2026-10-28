@@ -27,7 +27,7 @@ A new native element is not done until it has a row here and a row in `scripts/r
 ### Android: the card is the React card, from a bundled offline copy (CARD-PAGE-WEBVIEW-2026-10-24, Kyle, gate 339937c7)
 
 Kyle 2026-10-24: on Android, history is the live page and the card is drawn by a WebView from a bundled offline copy of
-the React card; iOS stays native (a native Android copy could not match Chromium's glyph rasterization). Same mechanism as
+the React card; iOS draws the card natively and its history was never native (live page; Kyle 2026-10-28: card only native on every platform) (a native Android copy could not match Chromium's glyph rasterization). Same mechanism as
 randalls-rewards-app (its AGENTS.md has the full description; keep the two `scripts/card-page/` copies identical apart from
 `config.json` and `fixture.json`). Balfour specifics: the card is an overlay over `/dashboard` opened from the My ID link, so
 the copy keeps only the opaque full-screen overlay (`keepOnly`), never the dashboard beneath; the QR is a fixed 288 px
