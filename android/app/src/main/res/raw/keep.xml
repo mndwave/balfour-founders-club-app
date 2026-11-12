@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- R8-BALFOUR-2026-11-12 (healer:8ab059db, as Randalls Rewards healer:cc015830): shrinkResources keeps only what code references.
+     Capacitor plugins resolve these by NAME from capacitor.config (getIdentifier: SplashScreen's drawable/layout,
+     LocalNotifications' smallIcon and sounds), which the shrinker cannot see. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/splash,@drawable/splash_logo,@drawable/ic_stat_*,@mipmap/ic_launcher*,@layout/*,@raw/*,@xml/*" />

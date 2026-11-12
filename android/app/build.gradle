@@ -37,8 +37,12 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8-BALFOUR-2026-11-12 (healer:8ab059db, as Randalls Rewards healer:cc015830): R8 shrink + optimise + rename,
+            // unused resources dropped. Capacitor and its plugins ship their keep rules (consumerProguardFiles); ours are in
+            // proguard-rules.pro. The AAB carries mapping.txt for Play; release-android.sh also keeps a private copy.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
         }
     }

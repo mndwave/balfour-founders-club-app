@@ -82,6 +82,11 @@ unset KEYSTORE_PASSWORD KEY_PASSWORD
 
 APK=android/app/build/outputs/apk/release/app-release.apk
 AAB=android/app/build/outputs/bundle/release/app-release.aab
+# R8-BALFOUR-2026-11-12 (healer:8ab059db): R8 renames the release classes. Play reads the mapping inside the AAB; keep a private
+# copy (never published) where terminal-api r8_retrace looks: ~/app-mappings/balfour/android/<versionName>/<versionCode>.txt.
+MAP=android/app/build/outputs/mapping/release/mapping.txt
+[ -s "$MAP" ] || { echo "BUILD REFUSED: R8 mapping.txt not produced (minifyEnabled off?)"; exit 1; }
+mkdir -p "$HOME/app-mappings/balfour/android/$VERSION_NAME" && cp "$MAP" "$HOME/app-mappings/balfour/android/$VERSION_NAME/$VERSION_CODE.txt"
 "$BT/apksigner" verify --print-certs "$APK" | grep -E 'Signer #1 certificate (DN|SHA-256)'
 "$BT/aapt2" dump badging "$APK" | sed -n 1p
 # LOYALTY-NATIVE-SHELL-2026-10-20 (healer:6d37d06c): the build manifest of the native screens, as the device reads it. Without
