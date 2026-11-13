@@ -127,3 +127,6 @@ unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 code=$(curl -s -o /dev/null -w '%{http_code}' "https://media.seq1.net/$PREFIX/$VERSIONED")
 echo "media.seq1.net: $VERSIONED -> HTTP $code · index https://media.seq1.net/$PREFIX/index.html (Obtainium needs the explicit index.html; the bare folder 404s)"
 [ "$code" = "200" ] || { echo "public APK not reachable"; exit 1; }
+# ANDROID-APPS-IN-SESSIONS-2026-11-13 (seq1-healer healer:10c89f09): the one release note with Install in Sessions, replaced in place per
+# app; also the release guard (APK, SHA-256, size, Obtainium page + link, BOLDTHINGS developer).
+android-release-note balfour-founders-club || { echo "android-release-note refused: the release is not complete"; exit 1; }
