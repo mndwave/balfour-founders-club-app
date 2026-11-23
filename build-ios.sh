@@ -107,6 +107,11 @@ if ! check_entitlements ipa "$CHECK_DIR/Payload/App.app"; then
   rm -rf "$CHECK_DIR"
   exit 1
 fi
+# IOS-ICON-BUNDLE-GATE-2026-11-23 (healer:fe4a8dec, after healer:8937cd41): the kit's icon-bundle check on the exported bundle (ITMS-90022/90023).
+if ! bash ~/balfour-founders-club-app/scripts/ios-icon-gate.sh "$CHECK_DIR/Payload/App.app"; then
+  rm -rf "$CHECK_DIR"
+  exit 1
+fi
 rm -rf "$CHECK_DIR"
 # SCENE-LIFECYCLE-GUARD-2026-10-03: iOS 27 SDK aborts at launch without UIApplicationSceneManifest (App Review rejected Randalls 1.0.9 (7), guideline 2.1(a)).
 CHECK_DIR=$(mktemp -d)
