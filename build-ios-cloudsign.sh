@@ -79,6 +79,8 @@ print -r -- "$ents" | grep -A1 '<key>aps-environment</key>' | grep -q '<string>p
 print -r -- "$ents" | grep -q "<string>${PASS_TYPE}</string>" || { echo "❌ pass type ${PASS_TYPE} missing"; fail=1; }
 for d in $DOMAINS; do print -r -- "$ents" | grep -q "<string>applinks:${d}</string>" || { echo "❌ applinks:${d} missing"; fail=1; }; done
 [ -n "$signer" ] || { echo "❌ IPA is not signed by an Apple Distribution identity"; fail=1; }
+# IOS-ICON-BUNDLE-GATE-2026-11-23 (healer:fe4a8dec, after healer:8937cd41): the kit's icon-bundle check on the exported bundle (ITMS-90022/90023).
+bash ~/balfour-founders-club-app/scripts/ios-icon-gate.sh "$CHECK_DIR/Payload/App.app" || fail=1
 rm -rf "$CHECK_DIR"
 [ $fail -eq 0 ] || { echo "Do NOT upload this build."; exit 1; }
 echo "✅ ENTITLEMENT-GUARD: production push, ${PASS_TYPE}, applinks ${DOMAINS[*]}, ${signer}"
